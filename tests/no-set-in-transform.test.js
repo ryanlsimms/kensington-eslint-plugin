@@ -21,6 +21,11 @@ tester.run('no-set-in-transform', rule, {
      const y = signal(0);
      x.transform(v => { effect(() => { y.set(1); }); return v; });`,
 
+    // event handler inside transform — .set() fires on user interaction, not during reactive run
+    `import { signal } from 'kensington';
+     const count = signal(0);
+     count.transform(v => t.button({ onclick: () => count.set(n => n + 1) }, v));`,
+
     // .set() inside a nested computed() within transform — separate reactive context
     `import { computed, signal } from 'kensington';
      const x = signal(0);

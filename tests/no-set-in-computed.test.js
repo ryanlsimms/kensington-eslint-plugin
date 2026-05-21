@@ -21,6 +21,11 @@ tester.run('no-set-in-computed', rule, {
      const y = signal(0);
      computed(() => { effect(() => { x.set(1); }); return y.get(); });`,
 
+    // event handler inside computed — .set() fires on user interaction, not during reactive run
+    `import { computed, signal } from 'kensington';
+     const count = signal(0);
+     computed(() => t.button({ onclick: () => count.set(n => n + 1) }, count));`,
+
     // computed not imported from kensington — rule does not apply
     `import { computed } from 'some-other-lib';
      const x = { set(v) {} };

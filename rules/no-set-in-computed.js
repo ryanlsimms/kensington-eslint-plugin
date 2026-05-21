@@ -31,6 +31,10 @@ export default {
 
       ':matches(ArrowFunctionExpression, FunctionExpression)'(node) {
         const { parent } = node;
+        if (parent.type === 'Property') {
+          fnStack.push('handler');
+          return;
+        }
         if (
           parent.type === 'CallExpression' &&
           parent.arguments[0] === node &&
@@ -66,7 +70,7 @@ export default {
             context.report({ node, messageId: 'noSetInComputed' });
             return;
           }
-          if (fnStack[i] === 'effect') { return; }
+          if (fnStack[i] === 'effect' || fnStack[i] === 'handler') { return; }
         }
       },
     };

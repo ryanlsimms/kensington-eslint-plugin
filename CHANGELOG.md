@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- `no-set-in-computed` and `no-set-in-transform` no longer flag `.set()` calls inside event handlers (e.g. `onclick`, `oninput`) defined within a computed or transform body — those handlers run on user interaction, not during the reactive read pass
+
 ## [0.2.0] - 2026-05-21
 
 ### Added
