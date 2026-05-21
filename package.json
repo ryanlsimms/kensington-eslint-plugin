@@ -1,0 +1,24 @@
+{
+  "name": "kensington-eslint-plugin-",
+  "version": "0.1.0",
+  "description": "ESLint rules for kensington signal correctness",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test tests/no-set-in-computed.test.js tests/no-self-read-write.test.js tests/no-signal-async-write.test.js tests/no-set-on-computed.test.js tests/no-new-signal-in-effect.test.js tests/no-effect-in-computed.test.js tests/no-ignored-effect-return.test.js tests/prefer-value-in-async.test.js tests/no-new-computed-in-effect.test.js tests/no-new-signal-in-computed.test.js tests/no-unsafe-literal.test.js tests/no-new-computed-in-computed.test.js tests/no-effect-in-effect.test.js tests/no-async-effect.test.js tests/no-async-computed.test.js"
+  },
+  "peerDependencies": {
+    "eslint": ">=9"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "ISC",
+  "files": [
+    "index.js",
+    "rules"
+  ]
+}
