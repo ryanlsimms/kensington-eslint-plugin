@@ -1,4 +1,4 @@
-# eslint-plugin-kensington
+# kensington-eslint-plugin
 
 ESLint rules for [kensington](https://github.com/beezwax/kensington) signal correctness.
 
@@ -7,7 +7,7 @@ Catches common reactive programming mistakes — read/write loops, writes inside
 ## Installation
 
 ```sh
-npm install --save-dev eslint-plugin-kensington
+npm install --save-dev kensington-eslint-plugin
 ```
 
 Requires ESLint 9+ and Node 18+.
@@ -17,7 +17,7 @@ Requires ESLint 9+ and Node 18+.
 Add the recommended config to your `eslint.config.js`:
 
 ```js
-import kensington from 'eslint-plugin-kensington';
+import kensington from 'kensington-eslint-plugin';
 
 export default [
   kensington.configs.recommended,
@@ -28,7 +28,7 @@ export default [
 Or enable rules individually:
 
 ```js
-import kensington from 'eslint-plugin-kensington';
+import kensington from 'kensington-eslint-plugin';
 
 export default [
   {
