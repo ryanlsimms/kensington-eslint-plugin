@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `no-set-in-transform` — disallow `.set()` inside a `.transform()` callback (transform callbacks are pure derivations; a write during a read pass corrupts the dependency graph)
+- `no-set-on-transform` — disallow `.set()` on a transform-derived signal (transform results are read-only; kensington throws at runtime)
+
+### Fixed
+
+- Added renamed-import test coverage to all rules that use import tracking, verifying that aliased imports (e.g. `import { effect as fx }`) are correctly recognised
+
 ## [0.1.1] - 2026-05-21
 
 ### Added

@@ -56,5 +56,13 @@ tester.run('no-self-read-write', rule, {
              effect(() => { const v = x.get(); if (v < 10) { x.set(v + 1); } });`,
       errors: [{ messageId: 'noSelfReadWrite' }],
     },
+
+    // renamed import — rule still fires when effect is aliased
+    {
+      code: `import { effect as fx, signal } from 'kensington';
+             const x = signal(0);
+             fx(() => { x.get(); x.set(1); });`,
+      errors: [{ messageId: 'noSelfReadWrite' }],
+    },
   ],
 });

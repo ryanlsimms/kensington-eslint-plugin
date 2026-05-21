@@ -81,5 +81,13 @@ tester.run('no-signal-async-write', rule, {
              });`,
       errors: [{ messageId: 'noSignalAsyncWrite' }],
     },
+
+    // renamed import — rule still fires when effect is aliased
+    {
+      code: `import { effect as fx, signal } from 'kensington';
+             const x = signal(0);
+             fx(() => { x.get(); setTimeout(() => x.set(1)); });`,
+      errors: [{ messageId: 'noSignalAsyncWrite' }],
+    },
   ],
 });

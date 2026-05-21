@@ -13,6 +13,8 @@ import noNewComputedInComputed from './rules/no-new-computed-in-computed.js';
 import noEffectInEffect from './rules/no-effect-in-effect.js';
 import noAsyncEffect from './rules/no-async-effect.js';
 import noAsyncComputed from './rules/no-async-computed.js';
+import noSetInTransform from './rules/no-set-in-transform.js';
+import noSetOnTransform from './rules/no-set-on-transform.js';
 
 const plugin = {
   meta: { name: 'eslint-plugin-kensington' },
@@ -32,6 +34,8 @@ const plugin = {
     'no-effect-in-effect': noEffectInEffect,
     'no-async-effect': noAsyncEffect,
     'no-async-computed': noAsyncComputed,
+    'no-set-in-transform': noSetInTransform,
+    'no-set-on-transform': noSetOnTransform,
   },
   configs: {},
 };
@@ -54,6 +58,8 @@ plugin.configs.recommended = {
     'kensington/no-effect-in-effect': 'error',
     'kensington/no-async-effect': 'error',
     'kensington/no-async-computed': 'error',
+    'kensington/no-set-in-transform': 'error',
+    'kensington/no-set-on-transform': 'error',
   },
 };
 

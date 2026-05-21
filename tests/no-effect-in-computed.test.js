@@ -31,6 +31,14 @@ tester.run('no-effect-in-computed', rule, {
       errors: [{ messageId: 'noEffectInComputed' }],
     },
 
+    // renamed import — rule still fires when effect is aliased
+    {
+      code: `import { computed, effect as fx, signal } from 'kensington';
+             const x = signal(0);
+             computed(() => { fx(() => { console.log('side effect'); }); return x.get(); });`,
+      errors: [{ messageId: 'noEffectInComputed' }],
+    },
+
     // effect() inside a nested function within computed
     {
       code: `import { computed, effect, signal } from 'kensington';

@@ -5,7 +5,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "node --test tests/no-set-in-computed.test.js tests/no-self-read-write.test.js tests/no-signal-async-write.test.js tests/no-set-on-computed.test.js tests/no-new-signal-in-effect.test.js tests/no-effect-in-computed.test.js tests/no-ignored-effect-return.test.js tests/prefer-value-in-async.test.js tests/no-new-computed-in-effect.test.js tests/no-new-signal-in-computed.test.js tests/no-unsafe-literal.test.js tests/no-new-computed-in-computed.test.js tests/no-effect-in-effect.test.js tests/no-async-effect.test.js tests/no-async-computed.test.js"
+    "test": "node --test tests/no-set-in-computed.test.js tests/no-self-read-write.test.js tests/no-signal-async-write.test.js tests/no-set-on-computed.test.js tests/no-new-signal-in-effect.test.js tests/no-effect-in-computed.test.js tests/no-ignored-effect-return.test.js tests/prefer-value-in-async.test.js tests/no-new-computed-in-effect.test.js tests/no-new-signal-in-computed.test.js tests/no-unsafe-literal.test.js tests/no-new-computed-in-computed.test.js tests/no-effect-in-effect.test.js tests/no-async-effect.test.js tests/no-async-computed.test.js tests/no-set-in-transform.test.js tests/no-set-on-transform.test.js"
   },
   "peerDependencies": {
     "eslint": ">=9"
@@ -20,6 +20,7 @@
     "type": "git",
     "url": "https://github.com/ryanlsimms/kensington-eslint-plugin"
   },
+  "keywords": ["eslint", "eslintplugin", "eslint-plugin", "kensington", "signals"],
   "license": "ISC",
   "files": [
     "index.js",

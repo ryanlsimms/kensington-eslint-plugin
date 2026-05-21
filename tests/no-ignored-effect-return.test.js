@@ -64,5 +64,12 @@ tester.run('no-ignored-effect-return', rule, {
              effect(() => { effect(() => {}); });`,
       errors: [{ messageId: 'noIgnoredEffectReturn' }],
     },
+
+    // renamed import — rule still fires when effect is aliased
+    {
+      code: `import { effect as fx } from 'kensington';
+             function setup() { fx(() => {}); }`,
+      errors: [{ messageId: 'noIgnoredEffectReturn' }],
+    },
   ],
 });

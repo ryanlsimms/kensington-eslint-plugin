@@ -70,6 +70,8 @@ Because this is a standard ESLint plugin, it works anywhere ESLint runs — no e
 | [`no-effect-in-effect`](#no-effect-in-effect) | Disallow creating a new `effect()` inside an `effect()` body | error |
 | [`no-async-effect`](#no-async-effect) | Disallow async callbacks passed to `effect()` | error |
 | [`no-async-computed`](#no-async-computed) | Disallow async callbacks passed to `computed()` | error |
+| [`no-set-in-transform`](#no-set-in-transform) | Disallow `.set()` inside a `.transform()` callback | error |
+| [`no-set-on-transform`](#no-set-on-transform) | Disallow `.set()` on a transform-derived signal | error |
 
 ---
 
@@ -344,4 +346,38 @@ const data = signal(null);
 effect(() => {
   fetch('/api').then(r => r.json()).then(v => data.set(v));
 });
+```
+
+---
+
+### `no-set-in-transform`
+
+Transform callbacks must be pure derivations. Calling `.set()` inside one causes a write during a read pass, the same class of bug as `.set()` inside `computed()`.
+
+```js
+// Bad
+const rows = items.transform(list => {
+  selectedId.set(null); // error
+  return list.map(item => t.li(item.name));
+});
+
+// Good — move the write into a separate effect
+effect(() => {
+  if (!items.get().length) { selectedId.set(null); }
+});
+```
+
+---
+
+### `no-set-on-transform`
+
+Transform-derived signals are read-only. Calling `.set()` on one throws at runtime; this rule catches it statically.
+
+```js
+// Bad
+const doubled = count.transform(v => v * 2);
+doubled.set(10); // error — transform results are read-only
+
+// Good — write to the source signal instead
+count.set(5);
 ```

@@ -67,5 +67,13 @@ tester.run('prefer-value-in-async', rule, {
              });`,
       errors: [{ messageId: 'preferValueInAsync' }],
     },
+
+    // renamed import — rule still fires when effect is aliased
+    {
+      code: `import { effect as fx, signal } from 'kensington';
+             const x = signal(0);
+             fx(() => { setTimeout(() => { console.log(x.get()); }); });`,
+      errors: [{ messageId: 'preferValueInAsync' }],
+    },
   ],
 });

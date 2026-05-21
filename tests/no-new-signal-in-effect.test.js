@@ -45,5 +45,12 @@ tester.run('no-new-signal-in-effect', rule, {
              effect(() => { effect(() => { const x = signal(0); }); });`,
       errors: [{ messageId: 'noNewSignalInEffect' }],
     },
+
+    // renamed import — rule still fires when signal is aliased
+    {
+      code: `import { effect, signal as sig } from 'kensington';
+             effect(() => { const x = sig(0); });`,
+      errors: [{ messageId: 'noNewSignalInEffect' }],
+    },
   ],
 });

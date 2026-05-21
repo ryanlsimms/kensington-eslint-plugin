@@ -16,7 +16,7 @@ tester.run('no-new-computed-in-effect', rule, {
      const x = signal(0);
      const doubled = computed(() => x.get() * 2);`,
 
-    // computed() inside another computed — different concern (no-new-signal-in-computed)
+    // computed() inside another computed — different concern (no-new-computed-in-computed)
     `import { computed, signal } from 'kensington';
      const x = signal(0);
      const outer = computed(() => { const inner = computed(() => x.get()); return inner.get(); });`,
@@ -50,6 +50,14 @@ tester.run('no-new-computed-in-effect', rule, {
       code: `import { effect, computed, signal } from 'kensington';
              const x = signal(0);
              effect(() => { effect(() => { const c = computed(() => x.get()); }); });`,
+      errors: [{ messageId: 'noNewComputedInEffect' }],
+    },
+
+    // renamed import — rule still fires when computed is aliased
+    {
+      code: `import { effect, computed as derive, signal } from 'kensington';
+             const x = signal(0);
+             effect(() => { const doubled = derive(() => x.get() * 2); });`,
       errors: [{ messageId: 'noNewComputedInEffect' }],
     },
   ],

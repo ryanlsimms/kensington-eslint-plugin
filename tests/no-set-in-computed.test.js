@@ -60,5 +60,14 @@ tester.run('no-set-in-computed', rule, {
              computed(() => { const fn = () => y.set(1); fn(); return x.get(); });`,
       errors: [{ messageId: 'noSetInComputed' }],
     },
+
+    // renamed import — rule still fires when computed is aliased
+    {
+      code: `import { computed as derive, signal } from 'kensington';
+             const x = signal(0);
+             const y = signal(0);
+             derive(() => { y.set(1); return x.get(); });`,
+      errors: [{ messageId: 'noSetInComputed' }],
+    },
   ],
 });

@@ -41,5 +41,12 @@ tester.run('no-new-signal-in-computed', rule, {
              const outer = computed(() => { const inner = computed(() => { const x = signal(0); return x.get(); }); return inner.get(); });`,
       errors: [{ messageId: 'noNewSignalInComputed' }],
     },
+
+    // renamed import — rule still fires when signal is aliased
+    {
+      code: `import { computed, signal as sig } from 'kensington';
+             const c = computed(() => { const x = sig(0); return x.get(); });`,
+      errors: [{ messageId: 'noNewSignalInComputed' }],
+    },
   ],
 });
