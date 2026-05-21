@@ -1,6 +1,6 @@
 {
   "name": "kensington-eslint-plugin",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "ESLint rules for kensington signal correctness",
   "type": "module",
   "main": "index.js",
@@ -20,7 +20,13 @@
     "type": "git",
     "url": "https://github.com/ryanlsimms/kensington-eslint-plugin"
   },
-  "keywords": ["eslint", "eslintplugin", "eslint-plugin", "kensington", "signals"],
+  "keywords": [
+    "eslint",
+    "eslintplugin",
+    "eslint-plugin",
+    "kensington",
+    "signals"
+  ],
   "license": "ISC",
   "files": [
     "index.js",
