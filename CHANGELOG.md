@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+
+- `no-new-signal-in-computed` now passes when `signal()` is called with a second argument (the key). Kensington's keyed-signal API is the recommended pattern for local state inside a computed. The rule severity moves from `problem` to `suggestion`, and the message points toward the keyed form rather than telling the developer to lift the signal out.
+
 ## [0.2.1] - 2026-05-21
 
 ### Fixed

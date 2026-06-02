@@ -1,15 +1,20 @@
-// Reports signal() called inside a computed() callback. Each recompute creates a new
-// orphaned signal with no cleanup path — declare the signal outside the computed.
+// Reports unkeyed signal() calls inside a computed() callback. Kensington handles the
+// unkeyed case correctly via reconciler-driven node replacement, but local signal state
+// resets to the initial value on every outer re-render and DOM identity is not preserved.
+// Pass a stable key as the second argument (e.g. signal(false, item.id)) to scope the
+// signal to the surrounding computed so the same instance is reused across re-runs.
 export default {
   meta: {
-    type: 'problem',
+    type: 'suggestion',
     docs: {
-      description: 'disallow creating a new signal() inside a computed() body',
+      description: 'require a stable key for signal() calls inside a computed() body',
     },
     messages: {
       noNewSignalInComputed:
-        'signal() called inside a computed() body. Each recompute creates a new orphaned signal. ' +
-        'Declare the signal outside the computed instead.',
+        'signal() called inside a computed() body without a key. Local state resets on ' +
+        'every outer re-render. Pass a stable key as the second argument ' +
+        '(e.g. signal(initial, item.id)) so the same signal instance is reused across ' +
+        'computed re-runs.',
     },
   },
 
@@ -59,6 +64,8 @@ export default {
           node.callee.type !== 'Identifier' ||
           !signalNames.has(node.callee.name)
         ) { return; }
+        // A key was supplied — this is the intended pattern, not a problem.
+        if (node.arguments.length >= 2) { return; }
 
         for (let i = fnStack.length - 1; i >= 0; i--) {
           if (fnStack[i] === 'computed') {
