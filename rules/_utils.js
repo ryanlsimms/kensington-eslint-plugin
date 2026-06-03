@@ -89,6 +89,28 @@ export function getObjectNames(context) {
   return context.options[0]?.objectNames ?? context.settings?.kensington?.objectNames;
 }
 
+// Default set of attribute namespaces — kebab prefixes whose hyphenated
+// children form an unbounded, namespaced family (data-*, aria-*). Mirrors the
+// Kensington `additionalNamespaces` defaults.
+export const DEFAULT_NAMESPACES = ['data', 'aria'];
+
+// Standard rule schema entry for the `namespaces` option.
+export const namespacesSchema = {
+  type: 'array',
+  items: { type: 'string' },
+  uniqueItems: true,
+};
+
+// Resolve `namespaces` from per-rule options first, then from plugin-level
+// settings (`settings.kensington.namespaces`), then from `DEFAULT_NAMESPACES`.
+export function getNamespaces(context) {
+  return (
+    context.options[0]?.namespaces
+    ?? context.settings?.kensington?.namespaces
+    ?? DEFAULT_NAMESPACES
+  );
+}
+
 // Returns the property key as a string, or null if computed/unrecognised.
 export function getPropertyKey(prop) {
   if (prop.type !== 'Property') { return null; }

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+
+- `prefer-nested-attr-groups` now only fires when the shared prefix is an actual attribute namespace. Default namespaces are `['data', 'aria']`, matching Kensington's `additionalNamespaces` defaults. Configure extras via the per-rule `namespaces` option or plugin-level `settings.kensington.namespaces`. Previously the rule fired on any shared kebab prefix, producing false positives on multi-word HTML/SVG attribute names (e.g. `strokeWidth` and `strokeLinecap` were flagged as a "stroke" group despite not being a namespace).
+
 ## [0.3.0] - 2026-06-03
 
 ### Added

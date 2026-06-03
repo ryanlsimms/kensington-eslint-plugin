@@ -1,29 +1,37 @@
-import { getTagAttrsObject, getPropertyKey, normalizeAttrName, kebabToCamel, isValidIdentifier, getObjectNames, objectNamesSchema } from './_utils.js';
+import { getTagAttrsObject, getPropertyKey, normalizeAttrName, kebabToCamel, isValidIdentifier, getObjectNames, getNamespaces, objectNamesSchema, namespacesSchema } from './_utils.js';
 
-// When two or more attribute keys share the same kebab-case prefix (e.g.
-// hxGet/hxTrigger/hxTarget or dataPageContent/dataPageNav), prefer the nested
-// object form: `hx: { get: ..., trigger: ..., target: ... }`.
+// When two or more attribute keys share the same namespace prefix (data-*,
+// aria-*, hx-*, etc.), prefer the nested object form. The default namespace
+// list is ['data', 'aria']; override via the `namespaces` option or
+// plugin-level `settings.kensington.namespaces`. The rule does NOT fire for
+// multi-word HTML/SVG attribute names that happen to share a word (e.g.
+// strokeWidth + strokeLinecap are separate attributes, not a "stroke
+// namespace").
 
 export default {
   meta: {
     type: 'suggestion',
     fixable: 'code',
     docs: {
-      description: 'prefer nested object form for attributes sharing a kebab-case prefix',
+      description: 'prefer nested object form for attributes sharing a namespace prefix',
     },
     schema: [{
       type: 'object',
-      properties: { objectNames: objectNamesSchema },
+      properties: {
+        objectNames: objectNamesSchema,
+        namespaces: namespacesSchema,
+      },
       additionalProperties: false,
     }],
     messages: {
-      preferNested: 'Attributes sharing the `{{prefix}}-` prefix should be nested under a single `{{prefix}}` key.',
+      preferNested: 'Attributes sharing the `{{prefix}}-` namespace should be nested under a single `{{prefix}}` key.',
     },
   },
 
   create(context) {
     const sourceCode = context.sourceCode;
     const objectNames = getObjectNames(context);
+    const namespaces = new Set(getNamespaces(context));
 
     return {
       CallExpression(node) {
@@ -40,6 +48,7 @@ export default {
           if (hy === -1) { continue; }
           const prefix = kebab.slice(0, hy);
           if (!isValidIdentifier(prefix)) { continue; }
+          if (!namespaces.has(prefix)) { continue; }
           if (!groups.has(prefix)) { groups.set(prefix, []); }
           groups.get(prefix).push({ prop, remainder: kebab.slice(hy + 1) });
         }
