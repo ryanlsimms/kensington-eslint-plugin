@@ -1,14 +1,16 @@
-// Reports .set() calls inside a .transform() callback.
-// Stops searching when a nested effect() or computed() is reached (separate reactive context).
+// Reports .set() calls inside a derivation — a computed() callback or a
+// .transform() callback. Derivations must be pure; writing inside them causes
+// a write during a read pass. Stops searching when a nested effect() or
+// non-derivation function boundary is reached.
 export default {
   meta: {
     type: 'problem',
     docs: {
-      description: 'disallow .set() inside a .transform() callback',
+      description: 'disallow .set() inside a computed() body or .transform() callback',
     },
     messages: {
-      noSetInTransform:
-        '.set() called inside a .transform() callback. Transform functions must be pure derivations. ' +
+      noSetInDerivation:
+        '.set() called inside a {{kind}}. Derivations must be pure. ' +
         'Move the write into a separate effect() instead.',
     },
   },
@@ -16,7 +18,8 @@ export default {
   create(context) {
     const computedNames = new Set();
     const effectNames = new Set();
-    // Each entry is 'transform', 'computed', 'effect', or 'other' — innermost frame is last.
+    // Each entry is 'computed', 'transform', 'effect', 'handler', or 'other' —
+    // innermost frame is last.
     const fnStack = [];
 
     return {
@@ -72,11 +75,16 @@ export default {
         ) { return; }
 
         for (let i = fnStack.length - 1; i >= 0; i--) {
-          if (fnStack[i] === 'transform') {
-            context.report({ node, messageId: 'noSetInTransform' });
+          const frame = fnStack[i];
+          if (frame === 'computed') {
+            context.report({ node, messageId: 'noSetInDerivation', data: { kind: 'computed() body' } });
             return;
           }
-          if (fnStack[i] === 'effect' || fnStack[i] === 'computed' || fnStack[i] === 'handler') { return; }
+          if (frame === 'transform') {
+            context.report({ node, messageId: 'noSetInDerivation', data: { kind: '.transform() callback' } });
+            return;
+          }
+          if (frame === 'effect' || frame === 'handler') { return; }
         }
       },
     };

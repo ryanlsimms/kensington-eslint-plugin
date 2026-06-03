@@ -2,7 +2,7 @@
 
 ESLint rules for [kensington](https://github.com/beezwax/kensington) signal correctness.
 
-Catches common reactive programming mistakes — read/write loops, writes inside computed derivations, orphaned effects, and async subscription pitfalls — at lint time rather than at runtime.
+Catches common reactive programming mistakes (read/write loops, writes inside computed derivations, orphaned effects, and async subscription pitfalls) at lint time rather than at runtime.
 
 ## Installation
 
@@ -34,7 +34,7 @@ export default [
   {
     plugins: { kensington },
     rules: {
-      'kensington/no-set-in-computed': 'error',
+      'kensington/no-set-in-derivation': 'error',
       'kensington/no-self-read-write': 'error',
       // ...
     },
@@ -42,22 +42,54 @@ export default [
 ];
 ```
 
+The `style` config is opt-in and bundles the formatting rules at `warn` level:
+
+```js
+import kensington from 'kensington-eslint-plugin';
+
+export default [
+  kensington.configs.recommended,
+  kensington.configs.style,
+];
+```
+
+The formatting rules match calls on `t.<tag>(...)` by default. If your Kensington
+instance is bound to a different name, set it once via plugin-level settings:
+
+```js
+import kensington from 'kensington-eslint-plugin';
+
+export default [
+  kensington.configs.recommended,
+  kensington.configs.style,
+  {
+    settings: { kensington: { objectNames: ['t', 'tag'] } },
+  },
+];
+```
+
+Per-rule options override the shared setting:
+
+```js
+'kensington/prefer-camelcase-attrs': ['warn', { objectNames: ['k'] }],
+```
+
 ## Editor and tooling support
 
-Because this is a standard ESLint plugin, it works anywhere ESLint runs — no extra configuration needed:
+Because this is a standard ESLint plugin, it works anywhere ESLint runs with no extra configuration needed.
 
-- **Editors** — VS Code, JetBrains IDEs (RubyMine, WebStorm, etc.), Neovim, and any editor with an ESLint language server show inline errors automatically once the plugin is configured.
-- **CI** — run `eslint --max-warnings 0` in any pipeline to enforce rules on every push.
-- **Pre-commit hooks** — works with `lint-staged` or any hook runner that invokes ESLint.
-- **Programmatic use** — available via the ESLint Node.js API (`new ESLint()`) for custom tooling.
+- **Editors.** VS Code, JetBrains IDEs (RubyMine, WebStorm, etc.), Neovim, and any editor with an ESLint language server show inline errors automatically once the plugin is configured.
+- **CI.** Run `eslint --max-warnings 0` in any pipeline to enforce rules on every push.
+- **Pre-commit hooks.** Works with `lint-staged` or any hook runner that invokes ESLint.
+- **Programmatic use.** Available via the ESLint Node.js API (`new ESLint()`) for custom tooling.
 
 ## Rules
 
 | Rule | Description | Recommended |
 |------|-------------|-------------|
-| [`no-set-in-computed`](#no-set-in-computed) | Disallow `.set()` inside a `computed()` body | error |
+| [`no-set-in-derivation`](#no-set-in-derivation) | Disallow `.set()` inside a `computed()` body or `.transform()` callback | error |
 | [`no-self-read-write`](#no-self-read-write) | Disallow reading and writing the same signal in the same reactive run | error |
-| [`no-set-on-computed`](#no-set-on-computed) | Disallow `.set()` on a computed signal | error |
+| [`no-set-on-derived-signal`](#no-set-on-derived-signal) | Disallow `.set()` on a derived (computed or transform) signal | error |
 | [`no-new-signal-in-effect`](#no-new-signal-in-effect) | Disallow creating a new `signal()` inside an `effect()` body | error |
 | [`no-effect-in-computed`](#no-effect-in-computed) | Disallow calling `effect()` inside a `computed()` body | error |
 | [`no-signal-async-write`](#no-signal-async-write) | Disallow writing a signal in an async callback when it was read in the enclosing `effect()` | warn |
@@ -70,23 +102,35 @@ Because this is a standard ESLint plugin, it works anywhere ESLint runs — no e
 | [`no-effect-in-effect`](#no-effect-in-effect) | Disallow creating a new `effect()` inside an `effect()` body | error |
 | [`no-async-effect`](#no-async-effect) | Disallow async callbacks passed to `effect()` | error |
 | [`no-async-computed`](#no-async-computed) | Disallow async callbacks passed to `computed()` | error |
-| [`no-set-in-transform`](#no-set-in-transform) | Disallow `.set()` inside a `.transform()` callback | error |
-| [`no-set-on-transform`](#no-set-on-transform) | Disallow `.set()` on a transform-derived signal | error |
+| [`prefer-boolean-attribute-true`](#prefer-boolean-attribute-true) | Prefer `true` over `''` for boolean HTML attributes | style |
+| [`prefer-camelcase-attrs`](#prefer-camelcase-attrs) | Prefer camelCase identifier keys over quoted kebab-case | style |
+| [`prefer-style-object`](#prefer-style-object) | Prefer a `style` object over a CSS string | style |
+| [`prefer-nested-attr-groups`](#prefer-nested-attr-groups) | Prefer nested form when attrs share a kebab prefix | style |
+| [`prefer-array-for-multiline-content`](#prefer-array-for-multiline-content) | Require array brackets around multi-line tag content | style |
+| [`attrs-on-call-line`](#attrs-on-call-line) | Attributes object must hug the tag call on both ends | style |
+| [`attrs-canonical-shape`](#attrs-canonical-shape) | Attributes object must be inline or canonically stacked | style |
+| [`consistent-content-layout`](#consistent-content-layout) | Tag content must hug the attrs `}` and the call's `)` | style |
 
 ---
 
-### `no-set-in-computed`
+### `no-set-in-derivation`
 
-Computed functions must be pure derivations. Calling `.set()` inside one causes a write during a read pass.
+Derivations are `computed()` bodies and `.transform()` callbacks. They must be pure. Calling `.set()` inside one causes a write during a read pass.
 
 ```js
-// Bad
+// Bad. Write inside computed().
 const doubled = computed(() => {
   sideEffect.set(true); // error
   return count.get() * 2;
 });
 
-// Good — move the write into an effect
+// Bad. Write inside .transform().
+const rows = items.transform(list => {
+  selectedId.set(null); // error
+  return list.map(item => t.li(item.name));
+});
+
+// Good. Move the write into a separate effect.
 effect(() => {
   sideEffect.set(doubled.get() > 10);
 });
@@ -102,10 +146,10 @@ Reading a signal with `.get()` subscribes to it. Writing it with `.set()` in the
 // Bad
 effect(() => {
   const val = count.get();
-  count.set(val + 1); // error — triggers the effect again
+  count.set(val + 1); // error. Triggers the effect again.
 });
 
-// Good — use .value to read without subscribing
+// Good. Use .value to read without subscribing.
 effect(() => {
   const val = count.value;
   count.set(val + 1);
@@ -114,13 +158,18 @@ effect(() => {
 
 ---
 
-### `no-set-on-computed`
+### `no-set-on-derived-signal`
 
-Computed signals are read-only. Kensington throws at runtime if you call `.set()` on one; this catches it statically.
+Derived signals are those produced by `computed()` or `.transform()`. They are read-only. Kensington throws at runtime if you call `.set()` on one; this catches it statically.
 
 ```js
+// computed
 const doubled = computed(() => count.get() * 2);
-doubled.set(10); // error — use signal() for writable state
+doubled.set(10); // error. Use signal() for writable state.
+
+// transform
+const rows = items.transform(v => v.map(x => x.id));
+rows.set([]); // error. Write to the source signal instead.
 ```
 
 ---
@@ -132,7 +181,7 @@ Each effect run creates a fresh signal with no cleanup path. The signal should b
 ```js
 // Bad
 effect(() => {
-  const local = signal(0); // error — orphaned on every run
+  const local = signal(0); // error. Orphaned on every run.
 });
 
 // Good
@@ -167,11 +216,11 @@ If a signal is read via `.get()` in an effect and then written in an async callb
 effect(() => {
   const val = count.get(); // subscribes
   setTimeout(() => {
-    count.set(val + 1); // error — re-triggers the effect
+    count.set(val + 1); // error. Re-triggers the effect.
   }, 100);
 });
 
-// Good — use .value to read without subscribing
+// Good. Use .value to read without subscribing.
 effect(() => {
   setTimeout(() => {
     count.set(count.value + 1);
@@ -188,7 +237,7 @@ effect(() => {
 ```js
 // Bad
 function setup() {
-  effect(() => console.log(count.get())); // warn — can't stop it
+  effect(() => console.log(count.get())); // warn. Can't stop it.
 }
 
 // Good
@@ -204,13 +253,13 @@ Module-level effects are intentionally long-lived and are not flagged.
 
 ### `prefer-value-in-async`
 
-Once an effect's synchronous body completes, async callbacks run outside its reactive context. `.get()` registers no subscription there — `.value` makes that explicit.
+Once an effect's synchronous body completes, async callbacks run outside its reactive context. `.get()` registers no subscription there. `.value` makes that explicit.
 
 ```js
 // Bad
 effect(() => {
   fetch('/api').then(() => {
-    console.log(count.get()); // warn — no subscription is registered
+    console.log(count.get()); // warn. No subscription is registered.
   });
 });
 
@@ -231,7 +280,7 @@ Creating `computed()` inside an `effect()` creates a new orphaned derived signal
 ```js
 // Bad
 effect(() => {
-  const doubled = computed(() => count.get() * 2); // error — orphaned every run
+  const doubled = computed(() => count.get() * 2); // error. Orphaned every run.
   console.log(doubled.get());
 });
 
@@ -249,7 +298,7 @@ Creating `signal()` inside `computed()` creates a new orphaned signal on every r
 ```js
 // Bad
 const c = computed(() => {
-  const temp = signal(0); // error — orphaned every recompute
+  const temp = signal(0); // error. Orphaned every recompute.
   return temp.get() + base.get();
 });
 
@@ -266,7 +315,7 @@ const c = computed(() => temp.get() + base.get());
 
 ```js
 // Bad
-t.unsafeLiteral(userContent); // error — bypasses XSS protection
+t.unsafeLiteral(userContent); // error. Bypasses XSS protection.
 
 // Good
 t.literal(userContent);
@@ -281,7 +330,7 @@ Creating `computed()` inside a `computed()` body creates a new orphaned derived 
 ```js
 // Bad
 const outer = computed(() => {
-  const inner = computed(() => count.get() * 2); // error — orphaned every recompute
+  const inner = computed(() => count.get() * 2); // error. Orphaned every recompute.
   return inner.get() + 1;
 });
 
@@ -294,16 +343,16 @@ const outer = computed(() => inner.get() + 1);
 
 ### `no-effect-in-effect`
 
-Creating `effect()` inside an `effect()` body means every re-run of the outer effect adds a new inner effect without stopping the previous one — subscriptions accumulate indefinitely. Capturing the return handle does not fix this; the previous handle would need to be explicitly stopped at the top of each run.
+Creating `effect()` inside an `effect()` body means every re-run of the outer effect adds a new inner effect without stopping the previous one. Subscriptions accumulate indefinitely. Capturing the return handle does not fix this; the previous handle would need to be explicitly stopped at the top of each run.
 
 ```js
 // Bad
 effect(() => {
   const items = list.get();
-  effect(() => console.log(items)); // error — previous inner effect never stopped
+  effect(() => console.log(items)); // error. Previous inner effect never stopped.
 });
 
-// Good — restructure as a single effect
+// Good. Restructure as a single effect.
 effect(() => {
   console.log(list.get());
 });
@@ -322,7 +371,7 @@ effect(async () => { // error
   title.set(data.title); // runs outside reactive context
 });
 
-// Good — keep reactive reads synchronous, push async work into .then()
+// Good. Keep reactive reads synchronous, push async work into .then().
 effect(() => {
   fetch(`/api/${id.get()}`).then(r => r.json()).then(data => title.set(data.title));
 });
@@ -335,13 +384,13 @@ effect(() => {
 The reactive system runs `computed()` callbacks synchronously. An async callback returns a `Promise` immediately, so the computed value is always a `Promise` object rather than the intended derived value.
 
 ```js
-// Bad — computed value is a Promise, not the resolved data
+// Bad. Computed value is a Promise, not the resolved data.
 const data = computed(async () => { // error
   return await fetch('/api').then(r => r.json());
 });
 t.p(data); // renders "[object Promise]"
 
-// Good — signal for the result, effect to populate it
+// Good. Signal for the result, effect to populate it.
 const data = signal(null);
 effect(() => {
   fetch('/api').then(r => r.json()).then(v => data.set(v));
@@ -350,34 +399,201 @@ effect(() => {
 
 ---
 
-### `no-set-in-transform`
+### `prefer-boolean-attribute-true`
 
-Transform callbacks must be pure derivations. Calling `.set()` inside one causes a write during a read pass, the same class of bug as `.set()` inside `computed()`.
+The HTML spec lists ~30 boolean attributes (`disabled`, `checked`, `hidden`, `selected`, etc.). Kensington treats `true` as "present" and `false`/`null`/`undefined` as "absent". An empty string is a confusing way to spell the same thing.
 
 ```js
 // Bad
-const rows = items.transform(list => {
-  selectedId.set(null); // error
-  return list.map(item => t.li(item.name));
-});
+t.input({ disabled: '' });
 
-// Good — move the write into a separate effect
-effect(() => {
-  if (!items.get().length) { selectedId.set(null); }
-});
+// Good
+t.input({ disabled: true });
 ```
+
+Auto-fixable. Extend the recognised set with the `extraBooleanAttrs` option.
 
 ---
 
-### `no-set-on-transform`
+### `prefer-camelcase-attrs`
 
-Transform-derived signals are read-only. Calling `.set()` on one throws at runtime; this rule catches it statically.
+Quoted kebab-case keys (`'aria-label'`, `'data-key'`) work, but the camelCase identifier form is the idiomatic Kensington style and matches what `html-to-kensington` emits.
 
 ```js
 // Bad
-const doubled = count.transform(v => v * 2);
-doubled.set(10); // error — transform results are read-only
+t.div({ 'aria-label': 'foo', 'data-key': k });
 
-// Good — write to the source signal instead
-count.set(5);
+// Good
+t.div({ ariaLabel: 'foo', dataKey: k });
 ```
+
+Auto-fixable.
+
+---
+
+### `prefer-style-object`
+
+A `style` object lets TypeScript validate CSS property names and lets Kensington skip runtime string parsing. The fixer parses the CSS string and converts each declaration to a camelCase property.
+
+```js
+// Bad
+t.div({ style: 'background-color: red; z-index: 2' });
+
+// Good
+t.div({ style: { backgroundColor: 'red', zIndex: '2' } });
+```
+
+Auto-fixable. The rule does **not** trigger when any property name fails to round-trip cleanly through Kensington's kebab/camelCase conversion. The two notable cases:
+
+- CSS custom properties (`--bg-color`) would require quoted JS keys.
+- Vendor prefixes (`-webkit-appearance`) lose their leading dash when Kensington serialises the object back to CSS.
+
+Strings containing template expressions (`style: \`color: ${c}\``) are also skipped.
+
+---
+
+### `prefer-nested-attr-groups`
+
+When two or more keys share the same kebab prefix (`data-*`, `aria-*`, `hx-*`, etc.), the nested form is shorter and groups related attributes visually.
+
+```js
+// Bad
+t.input({ hxGet: '/x', hxTrigger: 'change', hxTarget: '#y' });
+
+// Good
+t.input({ hx: { get: '/x', trigger: 'change', target: '#y' } });
+```
+
+Auto-fixable when the group's members are contiguous in the source. Non-contiguous members and groups whose prefix is already in use by a sibling key are reported but not fixed.
+
+---
+
+### `prefer-array-for-multiline-content`
+
+Mirrors what `html-to-kensington` emits: when a tag's content can't fit on the same line as the opening paren, it goes in an array, even when it's the only item. The array form makes line-by-line edits easier (no need to add `[ ]` when adding a sibling).
+
+```js
+// Bad
+t.div({ class: 'x' },
+  t.p('only')
+);
+
+// Good
+t.div({ class: 'x' }, [
+  t.p('only'),
+]);
+```
+
+Auto-fixable. Single-line calls (`t.div({…}, t.p('inner'))`) are left alone.
+
+---
+
+### `attrs-on-call-line`
+
+The attributes object hugs the call on both ends:
+
+- the opening `{` sits on the same line as the call's `(`, and
+- the closing `}` sits on the same line as the content (or its `[`) when there is one, or on the same line as the call's `)` when there isn't.
+
+```js
+// Bad. { not on call line.
+t.div(
+  { class: 'x' }
+);
+
+// Bad. } not on the ) line.
+t.div({
+  class: 'x',
+}
+);
+
+// Bad. } not on the content's line.
+t.div({
+  class: 'x',
+},
+  t.p('inner')
+);
+
+// Good
+t.div({ class: 'x' });
+t.div({
+  class: 'x',
+});
+t.div({
+  class: 'x',
+}, [
+  t.p('a'),
+]);
+t.div({ class: 'x' }, t.p('inner'));
+```
+
+Auto-fixable. A comment in the gap blocks the auto-fix for that side; the issue is still reported.
+
+---
+
+### `attrs-canonical-shape`
+
+The attributes object is either fully inline or fully stacked with one property per line and the braces on their own lines. Mixed forms are inconsistent and harder to diff.
+
+```js
+// Bad. Open brace shares a line with the first prop.
+t.div({ class: 'x',
+  id: 'y',
+});
+
+// Bad. Close brace shares a line with the last prop.
+t.div({
+  class: 'x',
+  id: 'y' });
+
+// Bad. Two props on the same line in an otherwise multi-line object.
+t.div({
+  class: 'x', id: 'y',
+  role: 'button',
+});
+
+// Good
+t.div({ class: 'x', id: 'y' });
+t.div({
+  class: 'x',
+  id: 'y',
+});
+```
+
+Auto-fixable when the object contains no interior comments. The fixer rewrites to the stacked form using the call's leading indentation as the base.
+
+---
+
+### `consistent-content-layout`
+
+The content argument (or its opening `[`) hugs the attrs object's `}` (or the call's `(` when there are no attrs), and the content's last token (or `]`) hugs the closing `)`. This is the shape `html-to-kensington` emits and what makes line-by-line diffs clean.
+
+```js
+// Bad. Content on a separate line from the attrs/call.
+t.div({ class: 'x' },
+  t.p('only')
+);
+
+// Bad. [ on its own line.
+t.div({ class: 'x' },
+  [
+    t.p('a'),
+  ]);
+
+// Bad. ] not on the closing-paren line.
+t.div({ class: 'x' }, [
+  t.p('a'),
+]
+);
+
+// Good
+t.div({ class: 'x' }, t.p('only'));
+t.div({ class: 'x' }, [
+  t.p('a'),
+]);
+t.div([
+  t.p('a'),
+]);
+```
+
+Auto-fixable. A comment between the anchor and the content (or between the content and `)`) suppresses the auto-fix for that side.

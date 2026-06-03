@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `prefer-boolean-attribute-true`. Prefer `true` over `''` for boolean HTML attributes. Configurable via `extraBooleanAttrs`.
+- `prefer-camelcase-attrs`. Prefer camelCase identifier keys over quoted kebab-case (`'aria-label'` to `ariaLabel`).
+- `prefer-style-object`. Prefer a `style` object over a CSS string. Skips properties that fail to round-trip cleanly through kebab/camelCase conversion, so CSS custom properties (`--var`) and vendor prefixes (`-webkit-*`) are left alone.
+- `prefer-nested-attr-groups`. Prefer the nested form (`hx: { get, trigger, target }`) when two or more keys share a kebab prefix. Auto-fixes contiguous groups.
+- `prefer-array-for-multiline-content`. Require array brackets around tag content that spans multiple lines, even when it's the only item.
+- `attrs-on-call-line`. The attributes object must hug the tag call on both ends. `{` on the same line as `(`, and `}` on the same line as the content (or its `[`) or the call's `)`.
+- `attrs-canonical-shape`. Attribute objects must be fully inline or fully stacked with one property per line and braces on their own lines.
+- `consistent-content-layout`. Tag content must hug the attrs `}` (or the call's `(`) at one end and the closing `)` at the other.
+- New opt-in `configs.style` bundling all formatting rules at `warn`.
+- Plugin-level setting `settings.kensington.objectNames` so the formatting rules can be pointed at a renamed Kensington binding (e.g. `tag.div(...)`) once instead of per-rule. Per-rule `objectNames` options still override.
+
+### Changed
+
+- **Breaking.** `no-set-in-computed` and `no-set-in-transform` merged into `no-set-in-derivation`. Both rules had identical intent (derivations must be pure); the merged rule detects writes inside either context.
+- **Breaking.** `no-set-on-computed` and `no-set-on-transform` merged into `no-set-on-derived-signal`. The merged rule tracks binding origin (computed or transform) and reports `.set()` on either.
+- **Breaking.** `multiline-content-array` renamed to `prefer-array-for-multiline-content` for consistency with other `prefer-*` rules.
+
 ## [0.2.2] - 2026-06-02
 
 ### Changed
