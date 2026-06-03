@@ -1,6 +1,8 @@
-// Tag content on a separate line from the call's opening paren must be wrapped
-// in an array, even when it's the only item. Mirrors what html-to-kensington
-// emits when a tag's content can't fit on a single line.
+// Tag content that occupies its own line(s) — separated from both the call's
+// opening paren and its closing paren — must be wrapped in an array, even when
+// it's the only item. Mirrors what html-to-kensington emits when a tag's
+// content can't fit on a single line. Content that trails on the closing-paren
+// line stays bare.
 
 import { isTagCall, getObjectNames, objectNamesSchema } from './_utils.js';
 
@@ -48,15 +50,18 @@ export default {
         if (content.type === 'SpreadElement') { return; }
 
         // The "opening line" is where the open paren sits — same line as the
-        // callee's last token. Content on that line stays bare.
+        // callee's last token. Content that touches either the opening-paren
+        // line or the closing-paren line stays bare.
         const openParenLine = node.callee.loc.end.line;
         if (content.loc.start.line <= openParenLine) { return; }
+
+        const closeParen = sourceCode.getLastToken(node);
+        if (closeParen && closeParen.value === ')' && content.loc.end.line >= closeParen.loc.start.line) { return; }
 
         context.report({
           node: content,
           messageId: 'wrapInArray',
           *fix(fixer) {
-            const closeParen = sourceCode.getLastToken(node);
             const tokenAfterContent = sourceCode.getTokenAfter(content);
             const hasTrailingComma = tokenAfterContent
               && tokenAfterContent.value === ','

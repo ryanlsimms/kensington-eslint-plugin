@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+
+- `prefer-array-for-multiline-content` no longer fires when single-line content trails on the call's closing-paren line. Stacked attrs followed by a one-line content arg (e.g. `t.a({ ... }, 'VS Code')`) is now valid. Previously the rule required wrapping in an array whenever content started on a different line than the opening paren.
+
 ## [0.3.1] - 2026-06-03
 
 ### Changed

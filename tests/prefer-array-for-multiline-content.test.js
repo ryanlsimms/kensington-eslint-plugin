@@ -15,6 +15,12 @@ tester.run('prefer-array-for-multiline-content', rule, {
        extra: true,
      }));`,
 
+    // stacked attrs, single-line content trailing on the closing-paren line
+    `t.a({
+       href: 'https://example.com',
+       target: '_blank',
+     }, 'VS Code');`,
+
     // already an array
     `t.div({ class: 'x' }, [
        t.p('only'),

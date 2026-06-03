@@ -470,7 +470,7 @@ Auto-fixable when the group's members are contiguous in the source. Non-contiguo
 
 ### `prefer-array-for-multiline-content`
 
-Mirrors what `html-to-kensington` emits: when a tag's content can't fit on the same line as the opening paren, it goes in an array, even when it's the only item. The array form makes line-by-line edits easier (no need to add `[ ]` when adding a sibling).
+Mirrors what `html-to-kensington` emits: when a tag's content occupies its own line(s) — separated from both the opening and closing paren — it goes in an array, even when it's the only item. The array form makes line-by-line edits easier (no need to add `[ ]` when adding a sibling).
 
 ```js
 // Bad
@@ -482,6 +482,12 @@ t.div({ class: 'x' },
 t.div({ class: 'x' }, [
   t.p('only'),
 ]);
+
+// Also good — content trails on the closing-paren line, no array needed
+t.a({
+  href: 'https://example.com',
+  target: '_blank',
+}, 'VS Code');
 ```
 
 Auto-fixable. Single-line calls (`t.div({…}, t.p('inner'))`) are left alone.
