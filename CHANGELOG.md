@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.4.0] - 2026-06-06
 
 ### Added
 - New `no-out-of-scope-reactive-reference` rule (warn). Reports `signal()`, `computed()`, or `.transform()` calls inside a `computed` body whose result escapes the owning computed's scope. Two inline patterns are allowed: result consumed by an immediate method chain (`.get()`, `.transform()`, etc.), or passed directly to a tag call as content or an attribute value. Only fires for true escapes. E.g. assigning the instance to a variable that survives the callback or capturing it in module-level state.

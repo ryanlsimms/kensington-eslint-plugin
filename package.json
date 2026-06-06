@@ -1,6 +1,6 @@
 {
   "name": "kensington-eslint-plugin",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "ESLint rules for kensington signal correctness",
   "type": "module",
   "main": "index.js",
