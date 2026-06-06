@@ -11,6 +11,7 @@ import noNewSignalInComputed from './rules/no-new-signal-in-computed.js';
 import noUnsafeLiteral from './rules/no-unsafe-literal.js';
 import noNewComputedInComputed from './rules/no-new-computed-in-computed.js';
 import noEffectInEffect from './rules/no-effect-in-effect.js';
+import noOutOfScopeReactiveReference from './rules/no-out-of-scope-reactive-reference.js';
 import noAsyncEffect from './rules/no-async-effect.js';
 import noAsyncComputed from './rules/no-async-computed.js';
 import preferBooleanAttributeTrue from './rules/prefer-boolean-attribute-true.js';
@@ -38,6 +39,7 @@ const plugin = {
     'no-unsafe-literal': noUnsafeLiteral,
     'no-new-computed-in-computed': noNewComputedInComputed,
     'no-effect-in-effect': noEffectInEffect,
+    'no-out-of-scope-reactive-reference': noOutOfScopeReactiveReference,
     'no-async-effect': noAsyncEffect,
     'no-async-computed': noAsyncComputed,
     'prefer-boolean-attribute-true': preferBooleanAttributeTrue,
@@ -66,10 +68,11 @@ plugin.configs.recommended = {
     'kensington/no-new-computed-in-effect': 'error',
     'kensington/no-new-signal-in-computed': 'error',
     'kensington/no-unsafe-literal': 'error',
-    'kensington/no-new-computed-in-computed': 'error',
+    'kensington/no-new-computed-in-computed': 'warn',
     'kensington/no-effect-in-effect': 'error',
     'kensington/no-async-effect': 'error',
     'kensington/no-async-computed': 'error',
+    'kensington/no-out-of-scope-reactive-reference': 'warn',
   },
 };
 

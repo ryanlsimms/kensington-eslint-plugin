@@ -96,9 +96,10 @@ Because this is a standard ESLint plugin, it works anywhere ESLint runs with no 
 | [`no-ignored-effect-return`](#no-ignored-effect-return) | Require capturing the return value of `effect()` inside a function | warn |
 | [`prefer-value-in-async`](#prefer-value-in-async) | Prefer `.value` over `.get()` inside async callbacks within an `effect()` | warn |
 | [`no-new-computed-in-effect`](#no-new-computed-in-effect) | Disallow creating a new `computed()` inside an `effect()` body | error |
-| [`no-new-signal-in-computed`](#no-new-signal-in-computed) | Disallow creating a new `signal()` inside a `computed()` body | error |
+| [`no-new-signal-in-computed`](#no-new-signal-in-computed) | Require a stable key for `signal()` calls inside a `computed()` body | error |
 | [`no-unsafe-literal`](#no-unsafe-literal) | Disallow `.unsafeLiteral()` calls that bypass XSS protection | error |
-| [`no-new-computed-in-computed`](#no-new-computed-in-computed) | Disallow creating a new `computed()` inside a `computed()` body | error |
+| [`no-new-computed-in-computed`](#no-new-computed-in-computed) | Require a stable key for `computed()` and `.transform()` calls inside a `computed()` body | warn |
+| [`no-out-of-scope-reactive-reference`](#no-out-of-scope-reactive-reference) | Disallow referencing a `signal()`, `computed()`, or `.transform()` from outside the computed scope where it was created | warn |
 | [`no-effect-in-effect`](#no-effect-in-effect) | Disallow creating a new `effect()` inside an `effect()` body | error |
 | [`no-async-effect`](#no-async-effect) | Disallow async callbacks passed to `effect()` | error |
 | [`no-async-computed`](#no-async-computed) | Disallow async callbacks passed to `computed()` | error |
@@ -325,18 +326,86 @@ t.literal(userContent);
 
 ### `no-new-computed-in-computed`
 
-Creating `computed()` inside a `computed()` body creates a new orphaned derived signal on every recompute.
+Creating `computed()` or `.transform()` inside a `computed()` body without a key creates a new orphaned derived signal on every recompute. Pass a stable key as the second argument to reuse the same instance across outer re-runs.
 
 ```js
-// Bad
-const outer = computed(() => {
-  const inner = computed(() => count.get() * 2); // error. Orphaned every recompute.
-  return inner.get() + 1;
-});
+// Bad. New instance on every outer re-run, inner state lost
+const list = computed(() =>
+  items.get().map(item => {
+    const cls = computed(() => filter.get() === item.cat ? 'on' : ''); // warn
+    return t.li({ dataKey: item.id, class: cls }, item.name);
+  })
+);
 
-// Good
-const inner = computed(() => count.get() * 2);
-const outer = computed(() => inner.get() + 1);
+// Bad. Same problem with .transform()
+const list = computed(() =>
+  items.get().map(item =>
+    t.li({ dataKey: item.id, class: filter.transform(f => f === item.cat ? 'on' : '') }, item.name) // warn
+  )
+);
+
+// Good. Keyed computed
+const list = computed(() =>
+  items.get().map(item =>
+    t.li({ dataKey: item.id, class: computed(() => filter.get() === item.cat ? 'on' : '', item.id) }, item.name)
+  )
+);
+
+// Good. Keyed transform
+const list = computed(() =>
+  items.get().map(item =>
+    t.li({ dataKey: item.id, class: filter.transform(f => f === item.cat ? 'on' : '', item.id) }, item.name)
+  )
+);
+
+// Also good. Declare outside when fn has no per-item closure
+const upper = computed(() => name.get().toUpperCase());
+const outer = computed(() => upper.get() + '!');
+```
+
+---
+
+### `no-out-of-scope-reactive-reference`
+
+A reactive primitive (`signal()`, `computed()`, or `.transform()`) created inside a `computed()` body is owned by the surrounding computed. The owner can stop it at any time. When a re-run doesn't access the key, the instance is swept from the registry and stopped. Any reference held outside the owner's scope silently drops subscribers and produces out-of-sync state.
+
+Two inline-consumption patterns are safe and allowed:
+
+1. The result is consumed by an immediate method chain (`.get()`, `.transform()`, `.toString()`, etc.). The chain consumes the instance; the instance itself never escapes.
+2. The result is passed directly to a tag call as content or an attribute value. The DOM binding effect created by `toElement()` is part of the owner's own render cycle, so its lifetime is tied to the DOM.
+
+```js
+// Bad. Instance escapes via module-level cache; external code can hold a dead signal
+const editingSignals = new Map();
+const list = computed(() =>
+  items.get().map(item => {
+    const editing = signal(false, item.id);
+    editingSignals.set(item.id, editing); // warn
+    return t.li({ dataKey: item.id, class: editing.transform(v => v ? 'on' : '') }, item.name);
+  })
+);
+
+// Bad. Instance returned from map; consumers see a stale signal after a sweep
+const list = computed(() =>
+  items.get().map(item => computed(() => item.v * 2, item.id)) // warn
+);
+
+// Good. Consumed via method chain
+const list = computed(() =>
+  items.get().map(item =>
+    computed(() => filter.get() === item.cat ? 'on' : '', item.id).get()
+  )
+);
+
+// Good. Passed directly to a tag; DOM binding owns lifetime
+const list = computed(() =>
+  items.get().map(item =>
+    t.li({
+      dataKey: item.id,
+      class: computed(() => filter.get() === item.cat ? 'on' : '', item.id),
+    }, item.name)
+  )
+);
 ```
 
 ---
@@ -470,7 +539,7 @@ Auto-fixable when the group's members are contiguous in the source. Non-contiguo
 
 ### `prefer-array-for-multiline-content`
 
-Mirrors what `html-to-kensington` emits: when a tag's content occupies its own line(s) — separated from both the opening and closing paren — it goes in an array, even when it's the only item. The array form makes line-by-line edits easier (no need to add `[ ]` when adding a sibling).
+Mirrors what `html-to-kensington` emits: when a tag's content occupies its own line(s). Separated from both the opening and closing paren. It goes in an array, even when it's the only item. The array form makes line-by-line edits easier (no need to add `[ ]` when adding a sibling).
 
 ```js
 // Bad
@@ -483,7 +552,7 @@ t.div({ class: 'x' }, [
   t.p('only'),
 ]);
 
-// Also good — content trails on the closing-paren line, no array needed
+// Also good. Content trails on the closing-paren line, no array needed
 t.a({
   href: 'https://example.com',
   target: '_blank',
