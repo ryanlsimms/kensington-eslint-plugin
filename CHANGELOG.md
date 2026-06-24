@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+- `no-out-of-scope-reactive-reference` rewritten to eliminate false positives. Now only fires for clear-cut escapes (returned from a nested function inside the computed callback, or assigned to an outside-scope variable). `const sig = computed(...); return t.div(sig);` and `helper(sig)` composition are no longer flagged.
+
 ## [0.5.0] - 2026-06-24
 
 ### Added
