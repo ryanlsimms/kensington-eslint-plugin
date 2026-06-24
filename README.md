@@ -42,6 +42,24 @@ export default [
 ];
 ```
 
+The `strict` config opts in to maximum-safety reactive correctness. It extends `recommended`, promotes every reactive-correctness `warn` rule to `error`, and adds two extra rules:
+
+```js
+import kensington from 'kensington-eslint-plugin';
+
+export default [
+  kensington.configs.strict,
+  // ...your other configs
+];
+```
+
+What `strict` changes on top of `recommended`:
+
+- **Adds `require-reactive-key`** (error). Paranoid mode. Flags every unkeyed `signal()`/`computed()`/`.transform()` call site, period. Not in `recommended` at any level. Keys are no-ops at module scope and required inside reactive scopes, so passing one always is safer than auditing call-site reachability. Suppress per call site with `eslint-disable-next-line kensington/require-reactive-key` when a top-level signal is known never to move into a reactive scope.
+- **Promotes from `warn` to `error`**. `no-signal-async-write`, `no-ignored-effect-return`, `prefer-value-in-async`, `no-new-computed-in-computed`, `no-out-of-scope-reactive-reference`, `no-helper-function-trap`. All real reactive-correctness issues; strict mode chooses zero silent misses over tolerance of false positives.
+
+Use `strict` if you want CI to fail on any reactive-correctness issue, or if you're using an agent-driven workflow that benefits from harder enforcement. Use `recommended` for production codebases that prefer the warnings as guidance.
+
 The `style` config is opt-in and bundles the formatting rules at `warn` level:
 
 ```js
@@ -85,32 +103,34 @@ Because this is a standard ESLint plugin, it works anywhere ESLint runs with no 
 
 ## Rules
 
-| Rule | Description | Recommended |
-|------|-------------|-------------|
-| [`no-set-in-derivation`](#no-set-in-derivation) | Disallow `.set()` inside a `computed()` body or `.transform()` callback | error |
-| [`no-self-read-write`](#no-self-read-write) | Disallow reading and writing the same signal in the same reactive run | error |
-| [`no-set-on-derived-signal`](#no-set-on-derived-signal) | Disallow `.set()` on a derived (computed or transform) signal | error |
-| [`no-new-signal-in-effect`](#no-new-signal-in-effect) | Disallow creating a new `signal()` inside an `effect()` body | error |
-| [`no-effect-in-computed`](#no-effect-in-computed) | Disallow calling `effect()` inside a `computed()` body | error |
-| [`no-signal-async-write`](#no-signal-async-write) | Disallow writing a signal in an async callback when it was read in the enclosing `effect()` | warn |
-| [`no-ignored-effect-return`](#no-ignored-effect-return) | Require capturing the return value of `effect()` inside a function | warn |
-| [`prefer-value-in-async`](#prefer-value-in-async) | Prefer `.value` over `.get()` inside async callbacks within an `effect()` | warn |
-| [`no-new-computed-in-effect`](#no-new-computed-in-effect) | Disallow creating a new `computed()` inside an `effect()` body | error |
-| [`no-new-signal-in-computed`](#no-new-signal-in-computed) | Require a stable key for `signal()` calls inside a `computed()` body | error |
-| [`no-unsafe-literal`](#no-unsafe-literal) | Disallow `.unsafeLiteral()` calls that bypass XSS protection | error |
-| [`no-new-computed-in-computed`](#no-new-computed-in-computed) | Require a stable key for `computed()` and `.transform()` calls inside a `computed()` body | warn |
-| [`no-out-of-scope-reactive-reference`](#no-out-of-scope-reactive-reference) | Disallow referencing a `signal()`, `computed()`, or `.transform()` from outside the computed scope where it was created | warn |
-| [`no-effect-in-effect`](#no-effect-in-effect) | Disallow creating a new `effect()` inside an `effect()` body | error |
-| [`no-async-effect`](#no-async-effect) | Disallow async callbacks passed to `effect()` | error |
-| [`no-async-computed`](#no-async-computed) | Disallow async callbacks passed to `computed()` | error |
-| [`prefer-boolean-attribute-true`](#prefer-boolean-attribute-true) | Prefer `true` over `''` for boolean HTML attributes | style |
-| [`prefer-camelcase-attrs`](#prefer-camelcase-attrs) | Prefer camelCase identifier keys over quoted kebab-case | style |
-| [`prefer-style-object`](#prefer-style-object) | Prefer a `style` object over a CSS string | style |
-| [`prefer-nested-attr-groups`](#prefer-nested-attr-groups) | Prefer nested form when attrs share a kebab prefix | style |
-| [`prefer-array-for-multiline-content`](#prefer-array-for-multiline-content) | Require array brackets around multi-line tag content | style |
-| [`attrs-on-call-line`](#attrs-on-call-line) | Attributes object must hug the tag call on both ends | style |
-| [`attrs-canonical-shape`](#attrs-canonical-shape) | Attributes object must be inline or canonically stacked | style |
-| [`consistent-content-layout`](#consistent-content-layout) | Tag content must hug the attrs `}` and the call's `)` | style |
+| Rule | Description | Recommended | Strict |
+|------|-------------|-------------|--------|
+| [`no-set-in-derivation`](#no-set-in-derivation) | Disallow `.set()` inside a `computed()` body or `.transform()` callback | error | error |
+| [`no-self-read-write`](#no-self-read-write) | Disallow reading and writing the same signal in the same reactive run | error | error |
+| [`no-set-on-derived-signal`](#no-set-on-derived-signal) | Disallow `.set()` on a derived (computed or transform) signal | error | error |
+| [`no-new-signal-in-effect`](#no-new-signal-in-effect) | Disallow creating a new `signal()` inside an `effect()` body | error | error |
+| [`no-effect-in-computed`](#no-effect-in-computed) | Disallow calling `effect()` inside a `computed()` body | error | error |
+| [`no-signal-async-write`](#no-signal-async-write) | Disallow writing a signal in an async callback when it was read in the enclosing `effect()` | warn | error |
+| [`no-ignored-effect-return`](#no-ignored-effect-return) | Require capturing the return value of `effect()` inside a function | warn | error |
+| [`prefer-value-in-async`](#prefer-value-in-async) | Prefer `.value` over `.get()` inside async callbacks within an `effect()` | warn | error |
+| [`no-new-computed-in-effect`](#no-new-computed-in-effect) | Disallow creating a new `computed()` inside an `effect()` body | error | error |
+| [`no-new-signal-in-computed`](#no-new-signal-in-computed) | Require a stable key for `signal()` calls inside a `computed()` body | error | error |
+| [`no-unsafe-literal`](#no-unsafe-literal) | Disallow `.unsafeLiteral()` calls that bypass XSS protection | error | error |
+| [`no-new-computed-in-computed`](#no-new-computed-in-computed) | Require a stable key for `computed()` and `.transform()` calls inside a `computed()` body | warn | error |
+| [`no-out-of-scope-reactive-reference`](#no-out-of-scope-reactive-reference) | Disallow referencing a `signal()`, `computed()`, or `.transform()` from outside the computed scope where it was created | warn | error |
+| [`no-effect-in-effect`](#no-effect-in-effect) | Disallow creating a new `effect()` inside an `effect()` body | error | error |
+| [`no-async-effect`](#no-async-effect) | Disallow async callbacks passed to `effect()` | error | error |
+| [`no-async-computed`](#no-async-computed) | Disallow async callbacks passed to `computed()` | error | error |
+| [`no-helper-function-trap`](#no-helper-function-trap) | Require a stable key for `signal()`/`computed()`/`.transform()` inside helpers reachable from a reactive callback in the same file | warn | error |
+| [`require-reactive-key`](#require-reactive-key) | Require a stable key on every `signal()`/`computed()`/`.transform()` call site, regardless of context | off | error |
+| [`prefer-boolean-attribute-true`](#prefer-boolean-attribute-true) | Prefer `true` over `''` for boolean HTML attributes | style | style |
+| [`prefer-camelcase-attrs`](#prefer-camelcase-attrs) | Prefer camelCase identifier keys over quoted kebab-case | style | style |
+| [`prefer-style-object`](#prefer-style-object) | Prefer a `style` object over a CSS string | style | style |
+| [`prefer-nested-attr-groups`](#prefer-nested-attr-groups) | Prefer nested form when attrs share a kebab prefix | style | style |
+| [`prefer-array-for-multiline-content`](#prefer-array-for-multiline-content) | Require array brackets around multi-line tag content | style | style |
+| [`attrs-on-call-line`](#attrs-on-call-line) | Attributes object must hug the tag call on both ends | style | style |
+| [`attrs-canonical-shape`](#attrs-canonical-shape) | Attributes object must be inline or canonically stacked | style | style |
+| [`consistent-content-layout`](#consistent-content-layout) | Tag content must hug the attrs `}` and the call's `)` | style | style |
 
 ---
 
@@ -465,6 +485,55 @@ effect(() => {
   fetch('/api').then(r => r.json()).then(v => data.set(v));
 });
 ```
+
+---
+
+### `no-helper-function-trap`
+
+Catches the call-stack version of the helper-function trap that the existing `no-new-signal-in-computed` and `no-new-computed-in-computed` rules miss. Those rules only flag lexical positions (the call is written directly inside a `computed(() => ...)` body in the source). This rule does single-file call-graph analysis. For every `signal()`/`computed()`/`.transform()` call without a key inside a named function, the rule checks whether that function is reachable (directly or transitively) from a reactive callback in the same file. Reactive callbacks recognized. function args to `computed(fn)`, `effect(fn)`, `signal.transform(fn)`, and `signal.mapWithKey(key, fn)`. Both inline arrow callbacks (`mapWithKey('id', x => row(x))`) and bare-identifier callbacks (`mapWithKey('id', row)`) are recognized.
+
+```js
+// Bad. row() is a plain helper, so signal() looks top-level in the source,
+// but row() is called from inside mapWithKey's mapFn. The signal runs in the
+// per-key computed at runtime.
+function row(item) {
+  const highlight = signal(false);
+  return t.li({ class: highlight }, item.name);
+}
+const list = items.mapWithKey('id', item => row(item));
+
+// Good. Key scopes the signal to the surrounding computed so the same
+// instance is reused across re-runs.
+function row(item) {
+  const highlight = signal(false, item.id);
+  return t.li({ class: highlight }, item.name);
+}
+const list = items.mapWithKey('id', item => row(item));
+```
+
+Single-file analysis only. A helper defined in `cell.ts` and called from a reactive callback in `grid.ts` is NOT flagged by this rule on `cell.ts` (the call site is invisible). For cross-file coverage use `require-reactive-key`, which flags every unkeyed call site regardless of context.
+
+False-positive surface. Helpers reachable from a reactive callback are flagged, even if they are ALSO called from non-reactive sites. The conservative choice is correct: if any call path enters a reactive scope, the key is needed.
+
+---
+
+### `require-reactive-key`
+
+Paranoid mode. Flags every unkeyed `signal()`/`computed()`/`.transform()` call site, full stop. Keys are no-ops at module scope (the key argument is ignored when not inside a reactive scope) and required inside reactive scopes, so passing one always is safer than auditing call-site reachability.
+
+```js
+// Flagged. Pass a key.
+const count = signal(0);
+const doubled = computed(() => count.get() * 2);
+const half = count.transform(v => v / 2);
+
+// Suppress per call site if the call is genuinely top-level and you do not
+// want the noise.
+// eslint-disable-next-line kensington/require-reactive-key
+const theme = signal('light');
+```
+
+Off in the recommended config (too noisy for production codebases that legitimately scatter top-level signals). On in the `strict` config. Intended for agent-driven workflows, refactor-prone codebases, and projects that want maximum safety against later lifting code into a reactive callback.
 
 ---
 

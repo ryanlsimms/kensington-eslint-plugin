@@ -22,6 +22,8 @@ import preferArrayForMultilineContent from './rules/prefer-array-for-multiline-c
 import attrsOnCallLine from './rules/attrs-on-call-line.js';
 import attrsCanonicalShape from './rules/attrs-canonical-shape.js';
 import consistentContentLayout from './rules/consistent-content-layout.js';
+import noHelperFunctionTrap from './rules/no-helper-function-trap.js';
+import requireReactiveKey from './rules/require-reactive-key.js';
 
 const plugin = {
   meta: { name: 'eslint-plugin-kensington' },
@@ -50,6 +52,8 @@ const plugin = {
     'attrs-on-call-line': attrsOnCallLine,
     'attrs-canonical-shape': attrsCanonicalShape,
     'consistent-content-layout': consistentContentLayout,
+    'no-helper-function-trap': noHelperFunctionTrap,
+    'require-reactive-key': requireReactiveKey,
   },
   configs: {},
 };
@@ -73,6 +77,23 @@ plugin.configs.recommended = {
     'kensington/no-async-effect': 'error',
     'kensington/no-async-computed': 'error',
     'kensington/no-out-of-scope-reactive-reference': 'warn',
+    'kensington/no-helper-function-trap': 'warn',
+  },
+};
+
+plugin.configs.strict = {
+  plugins: { kensington: plugin },
+  rules: {
+    ...plugin.configs.recommended.rules,
+    // Promote every reactive-correctness warning to error. Strict mode trades
+    // tolerance of false positives for zero silent misses.
+    'kensington/no-signal-async-write': 'error',
+    'kensington/no-ignored-effect-return': 'error',
+    'kensington/prefer-value-in-async': 'error',
+    'kensington/no-new-computed-in-computed': 'error',
+    'kensington/no-out-of-scope-reactive-reference': 'error',
+    'kensington/no-helper-function-trap': 'error',
+    'kensington/require-reactive-key': 'error',
   },
 };
 

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- New `no-helper-function-trap` rule (recommended. warn). Single-file call-graph analysis that catches unkeyed `signal()` / `computed()` / `.transform()` inside helpers reachable from a reactive callback (`computed`, `effect`, `.transform`, `mapWithKey` mapFn). Catches the helper-style pattern the existing lexical rules miss.
+- New `require-reactive-key` rule (strict only. error). Flags every unkeyed `signal()` / `computed()` / `.transform()` call site.
+- New `strict` config tier extending `recommended`. Both new rules at `error`, plus every reactive-correctness `warn` rule promoted to `error` (`no-signal-async-write`, `no-ignored-effect-return`, `prefer-value-in-async`, `no-new-computed-in-computed`, `no-out-of-scope-reactive-reference`). Trades tolerance of false positives for zero silent misses.
+
 ## [0.4.0] - 2026-06-06
 
 ### Added
