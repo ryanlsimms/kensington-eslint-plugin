@@ -1,23 +1,33 @@
-// Reports unkeyed computed() or .transform() calls inside a computed() callback. Each
-// recompute creates a new orphaned derived signal with no cleanup path. Pass a stable key
-// as the second argument (e.g. computed(fn, item.id) or sig.transform(fn, item.id)) to
-// scope the derived signal to the surrounding computed so the same instance is reused
-// across re-runs.
+// Deprecated. The kensington runtime now defers the computed-in-computed and
+// transform-in-computed warnings to subscription time and only fires when a user
+// effect or user computed subscribes to the inner. Inline consumption as an attribute,
+// class, text, or prop slot is silent by design. That change makes this rule's
+// purely-lexical flag redundant. Escape cases are already covered by
+// `no-out-of-scope-reactive-reference` (which uses a full escape classifier).
+// The `strict` config's `require-reactive-key` still catches every unkeyed call site
+// for teams that want refactor-safety enforcement.
+//
+// The rule remains registered so existing configs that reference it don't error.
+// Removed from the `recommended` and `strict` configs.
 export default {
   meta: {
     type: 'suggestion',
+    deprecated: true,
+    replacedBy: ['no-out-of-scope-reactive-reference'],
     docs: {
-      description: 'require a stable key for computed() and .transform() calls inside a computed() body',
+      description: 'require a stable key for computed() and .transform() calls inside a computed() body (deprecated. see no-out-of-scope-reactive-reference)',
     },
     messages: {
       noNewComputedInComputed:
-        'computed() called inside a computed() body without a key. The DOM node will be replaced ' +
-        'on every outer re-render. Pass a stable key as the second argument ' +
-        '(e.g. computed(fn, item.id)) so the same instance is reused across computed re-runs.',
+        'computed() called inside a computed() body without a key. The runtime warns only when ' +
+        'a user effect or user computed subscribes to the inner. Inline consumption as an ' +
+        'attribute, class, or text slot is silent. Pass a stable key when the inner is held by ' +
+        'user subscribers (e.g. computed(fn, item.id)).',
       noNewTransformInComputed:
-        '.transform() called inside a computed() body without a key. The DOM node will be replaced ' +
-        'on every outer re-render. Pass a stable key as the second argument ' +
-        '(e.g. sig.transform(fn, item.id)) so the same instance is reused across computed re-runs.',
+        '.transform() called inside a computed() body without a key. The runtime warns only when ' +
+        'a user effect or user computed subscribes to the inner. Inline consumption as an ' +
+        'attribute, class, or text slot is silent. Pass a stable key when the inner is held by ' +
+        'user subscribers (e.g. sig.transform(fn, item.id)).',
     },
   },
 

@@ -1,32 +1,114 @@
 #!/usr/bin/env node
 // kensington-check-reactive
+// ===========================================================================
 //
 // EXPERIMENTAL. NOT YET RELEASED.
 // This binary ships in the published package but is intentionally not
 // documented in README.md or CHANGELOG.md. The CLI flags, output format,
-// suppression-comment syntax, presence in the package, and even its name
-// may change or be removed in any future release without notice. Do not
-// build tooling on top of it yet. The first release that documents this
-// tool in README.md is the release that commits to its contract.
+// detection rules, suppression-comment syntax, presence in the package, and
+// even its name may change or be removed in any future release without
+// notice. Do not build tooling on top of it yet. The first release that
+// documents this tool in README.md is the release that commits to its
+// contract. Until then THIS COMMENT BLOCK is the canonical description of
+// what the command does.
 //
-// Cross-file static analyzer for the kensington helper-function trap. Parses
-// every .ts/.tsx/.js/.jsx file under the given roots, builds a project-wide
-// call graph (across imports), and reports every unkeyed signal()/computed()/
-// .transform() call site inside a function reachable from a reactive callback
-// anywhere in the project.
+// ---------------------------------------------------------------------------
+// What it does
+// ---------------------------------------------------------------------------
 //
-// Complements the single-file ESLint rule (`no-helper-function-trap`). The
-// ESLint rule catches the case where the helper and the reactive callback live
-// in the same file. This script catches the case where they live in different
-// files connected by imports.
+// Cross-file static analyzer for two classes of kensington reactive bugs that
+// in-file ESLint rules cannot catch on their own. Parses every .ts/.tsx/.js/
+// .jsx/.mjs/.cjs file under the given roots, builds a project-wide call
+// graph across imports (named imports, default imports, re-exports, and
+// re-export-all), and reports two kinds of findings:
 //
-// Usage (subject to change):
+//   1. Unkeyed reactive primitive inside a reachable helper.
+//      Any signal(), computed(), or .transform() call site (no key argument)
+//      inside a NAMED function that is reachable from a reactive callback
+//      (computed(fn), effect(fn), signal.transform(fn), signal.mapWithKey(key,
+//      mapFn)) anywhere in the project. The kensington-eslint-plugin rule
+//      `no-helper-function-trap` catches this for helpers defined in the same
+//      file as the reactive callback. This script catches the cross-file case
+//      where the helper is imported.
+//
+//      Reported with kind: 'unkeyed-in-reactive-callback'.
+//
+//   2. Duplicate keyed-primitive call with mismatched primitive initial.
+//      Two or more call sites that pass the same literal string key to
+//      signal(initial, 'key') (or the same literal string name to
+//      liveSignal(initial, 'name') from kensington/live) but with different
+//      primitive literal initial values. The second caller's initial is
+//      silently ignored at runtime — the registry returns the existing
+//      signal with its current value — so without this static check the bug
+//      surfaces later as a wrong-value UI surprise. Object and array
+//      initials are skipped (false-positive risk on
+//      structurally-equal-but-reference-different cases). signal and
+//      liveSignal are grouped separately because their collision namespaces
+//      differ.
+//
+//      Reported with kind: 'duplicate-key-initial-mismatch'.
+//
+// Static analysis only. Both detectors require literal-string keys and
+// (for #2) primitive literal initials to fire. Dynamic keys built at runtime
+// (`cell:${addr}`) and dynamic initials (getCurrentUser()) are uncatchable
+// statically; the kensington runtime emits paired throttled warnings for
+// those cases at call time.
+//
+// ---------------------------------------------------------------------------
+// Suppression
+// ---------------------------------------------------------------------------
+//
+// Per-call-site escape hatch. Add either form on the offending line or on
+// the line above it:
+//
+//   // kensington-check-reactive-ignore
+//   // check-reactive-ignore
+//
+// The line-above form also suppresses the next code line, which covers tight
+// declaration groups. Intended for the lazy-registry pattern (the script
+// can't tell whether the lazy creation has been pre-seeded by the consumer)
+// and the rare legitimate cross-file initial mismatch.
+//
+// ---------------------------------------------------------------------------
+// Usage (subject to change)
+// ---------------------------------------------------------------------------
+//
 //   kensington-check-reactive [paths...]
-//   kensington-check-reactive [paths...] --json
-//   kensington-check-reactive [paths...] --quiet     # exit-code only, no output
-//   kensington-check-reactive --help
+//       Scan and print human-readable findings to stdout.
 //
-// Exits 0 on no findings, 1 on findings, 2 on script error.
+//   kensington-check-reactive [paths...] --json
+//       Print findings as { findings: [...] } JSON. Each finding has a
+//       `kind` field distinguishing the two detection types.
+//
+//   kensington-check-reactive [paths...] --quiet
+//       Exit-code only. No stdout.
+//
+//   kensington-check-reactive --help
+//       Brief help.
+//
+// Paths default to `.` (the current working directory). Skipped directory
+// names: node_modules, .git, dist, build, cjs, .next, .wrangler, public,
+// coverage.
+//
+// Exit codes: 0 on no findings, 1 on findings, 2 on script error
+// (e.g. no source files found, fatal parse error in the analyzer).
+//
+// ---------------------------------------------------------------------------
+// Recommended invocation
+// ---------------------------------------------------------------------------
+//
+// Chain into the project's lint script so every `npm run lint` runs the
+// check alongside ESLint:
+//
+//   "lint": "eslint . && kensington-check-reactive src --quiet"
+//
+// --quiet keeps the script exit-code-only; ESLint's own output stays
+// visible, and a non-zero exit fails the script. Drop --quiet to print
+// findings inline above the lint output.
+//
+// Programmatic entry point: `analyzeProject(roots, opts)` is exported at the
+// bottom of this file. Returns `{ findings, fileCount }` without writing to
+// stdout or calling process.exit. Suitable for editor integrations and tests.
 
 /* global process */
 import { readFileSync, statSync, readdirSync } from 'node:fs';
@@ -178,6 +260,15 @@ function analyzeFile(file) {
   const signalNames = new Set();
   const computedNames = new Set();
   const effectNames = new Set();
+  // Live-signal names from `kensington/live`. Tracked separately because the
+  // collision namespace differs from regular keyed signals: liveSignal names
+  // are global across the app, regular keyed signal keys are per-computed.
+  const liveSignalNames = new Set();
+  // Per-file literal-key + literal-initial calls. Aggregated cross-file in
+  // `findDuplicateKeyInitialMismatches` to surface collisions where two
+  // unrelated call sites share a literal key/name but pass different
+  // primitive initials.
+  const keyedLiteralInits = [];
 
   // Track which function we are currently inside (named/binding) and how
   // deeply nested in a reactive callback we are.
@@ -271,6 +362,8 @@ function analyzeFile(file) {
             if (imported === 'signal') { signalNames.add(local); }
             else if (imported === 'computed') { computedNames.add(local); }
             else if (imported === 'effect') { effectNames.add(local); }
+          } else if (node.source.value === 'kensington/live') {
+            if (imported === 'liveSignal') { liveSignalNames.add(local); }
           }
         } else if (spec.type === 'ImportDefaultSpecifier') {
           imports.set(spec.local.name, { sourceFile, exportedName: 'default' });
@@ -354,6 +447,29 @@ function analyzeFile(file) {
     const callee = node.callee;
     const hasKey = node.arguments.length >= 2;
 
+    // Capture (literal-key, literal-initial) pairs for cross-file collision detection.
+    // signal(initial, 'literal-key') and liveSignal(initial, 'literal-name') only.
+    // Computed and .transform don't have an "initial" so collisions there
+    // can't be mismatched in the same way.
+    if (node.arguments.length === 2) {
+      const arg0 = node.arguments[0];
+      const arg1 = node.arguments[1];
+      const isStringLiteralKey = arg1 && arg1.type === 'Literal' && typeof arg1.value === 'string';
+      const isPrimitiveLiteralInitial = arg0 && arg0.type === 'Literal'
+        && (arg0.value === null || ['string', 'number', 'boolean'].includes(typeof arg0.value));
+      if (isStringLiteralKey && isPrimitiveLiteralInitial) {
+        let primitive = null;
+        if (callee.type === 'Identifier' && signalNames.has(callee.name)) { primitive = 'signal'; }
+        else if (callee.type === 'Identifier' && liveSignalNames.has(callee.name)) { primitive = 'liveSignal'; }
+        if (primitive !== null) {
+          const loc = node.loc ? { line: node.loc.start.line, column: node.loc.start.column + 1 } : { line: 0, column: 0 };
+          if (!suppressedLines.has(loc.line)) {
+            keyedLiteralInits.push({ primitive, key: arg1.value, initial: arg0.value, loc });
+          }
+        }
+      }
+    }
+
     // Reactive-callback bare-identifier detection (callback IS an identifier,
     // not a function expression).
     function detectBareIdent(arg, _reason) {
@@ -403,7 +519,7 @@ function analyzeFile(file) {
 
   walk(ast, null);
 
-  return { file, imports, exports, funcs, reactiveLocalEntries };
+  return { file, imports, exports, funcs, reactiveLocalEntries, keyedLiteralInits };
 }
 
 // === Cross-file resolution + propagation ===================================
@@ -511,6 +627,7 @@ function report(index, reachable) {
       const reason = reachable.get(key);
       for (const hit of fn.unkeyedCalls) {
         findings.push({
+          kind: 'unkeyed-in-reactive-callback',
           file: relPath(file),
           line: hit.loc.line,
           column: hit.loc.column,
@@ -521,8 +638,61 @@ function report(index, reachable) {
       }
     }
   }
+  for (const f of findDuplicateKeyInitialMismatches(index)) {
+    findings.push(f);
+  }
   findings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column);
   return findings;
+}
+
+// Cross-file aggregation. Groups every `signal(literal, 'literal-key')` and
+// `liveSignal(literal, 'literal-name')` call by (primitive, key) and emits one
+// finding per call site when the group has disagreeing initial values. The
+// two primitives are grouped separately because their collision namespaces
+// differ: liveSignal names are global; regular signal keys are per-computed
+// (but two calls with the same literal key landing in the same outer computed
+// from different files is the bug shape we want to surface).
+function findDuplicateKeyInitialMismatches(index) {
+  const groups = new Map(); // `${primitive}::${key}` -> Array<{ file, loc, initial, primitive, key }>
+  for (const [file, rec] of index) {
+    if (!rec.keyedLiteralInits) { continue; }
+    for (const entry of rec.keyedLiteralInits) {
+      const groupKey = `${entry.primitive}::${entry.key}`;
+      let group = groups.get(groupKey);
+      if (group === undefined) { group = []; groups.set(groupKey, group); }
+      group.push({ ...entry, file });
+    }
+  }
+  const out = [];
+  for (const [, group] of groups) {
+    if (group.length < 2) { continue; }
+    // Find any disagreement among initials. Object.is for primitive comparison.
+    const first = group[0].initial;
+    const allMatch = group.every(e => Object.is(e.initial, first));
+    if (allMatch) { continue; }
+    // Disagreement: emit one finding per call site, cross-referencing the group.
+    const others = group.map(e => `${relPath(e.file)}:${e.loc.line}:${e.loc.column} (initial=${formatInitial(e.initial)})`);
+    for (const entry of group) {
+      out.push({
+        kind: 'duplicate-key-initial-mismatch',
+        file: relPath(entry.file),
+        line: entry.loc.line,
+        column: entry.loc.column,
+        primitive: entry.primitive,
+        key: entry.key,
+        initial: entry.initial,
+        groupSize: group.length,
+        otherSites: others.filter(s => !s.startsWith(`${relPath(entry.file)}:${entry.loc.line}:${entry.loc.column}`)),
+      });
+    }
+  }
+  return out;
+}
+
+function formatInitial(v) {
+  if (v === null) { return 'null'; }
+  if (typeof v === 'string') { return JSON.stringify(v); }
+  return String(v);
 }
 
 // === Public API ============================================================
@@ -548,17 +718,26 @@ function printHelp() {
   process.stdout.write(
     'kensington-check-reactive (EXPERIMENTAL, NOT YET RELEASED)\n'
     + '\n'
-    + 'Cross-file static analyzer for unkeyed signal()/computed()/.transform()\n'
-    + 'calls inside helper functions reachable from a reactive callback. This\n'
-    + 'binary is shipped for early testing only. The CLI surface, output format,\n'
-    + 'and even its presence in the package may change without notice. Do not\n'
-    + 'build tooling on top of it until it appears in README.md.\n'
+    + 'Cross-file static analyzer for two classes of kensington reactive bugs:\n'
+    + '  1. Unkeyed signal()/computed()/.transform() inside helpers reachable\n'
+    + '     from a reactive callback anywhere in the project.\n'
+    + '  2. Duplicate signal(initial, KEY) or liveSignal(initial, NAME) calls\n'
+    + '     with the same literal key/name but different primitive initials.\n'
+    + '\n'
+    + 'This binary is shipped for early testing only. The CLI surface, output\n'
+    + 'format, detection rules, and even its presence in the package may change\n'
+    + 'without notice. Do not build tooling on top of it until it appears in\n'
+    + 'README.md. See the comment header in bin/check-reactive.js for the\n'
+    + 'canonical description until then.\n'
     + '\n'
     + 'Usage:\n'
     + '  kensington-check-reactive [paths...]            scan and print findings\n'
     + '  kensington-check-reactive [paths...] --json     structured JSON output\n'
     + '  kensington-check-reactive [paths...] --quiet    exit code only, no output\n'
     + '  kensington-check-reactive --help                this message\n'
+    + '\n'
+    + 'Paths default to the current working directory. Suppress per call site\n'
+    + 'with `// kensington-check-reactive-ignore` on or above the line.\n'
     + '\n'
     + 'Exits 0 on no findings, 1 on findings, 2 on script error.\n',
   );
@@ -594,9 +773,17 @@ function main() {
       process.stdout.write(`kensington-check-reactive: 0 findings across ${index.size} files\n`);
     } else {
       for (const f of findings) {
-        process.stdout.write(
-          `${f.file}:${f.line}:${f.column}: warning: ${f.primitive}() unkeyed in \`${f.fnName}\` (${f.reason})\n`,
-        );
+        if (f.kind === 'duplicate-key-initial-mismatch') {
+          const others = f.otherSites.length ? ` (other sites: ${f.otherSites.join('; ')})` : '';
+          process.stdout.write(
+            `${f.file}:${f.line}:${f.column}: warning: ${f.primitive}(initial=${formatInitial(f.initial)}, '${f.key}') `
+            + `disagrees with other call sites' initial for the same key${others}\n`,
+          );
+        } else {
+          process.stdout.write(
+            `${f.file}:${f.line}:${f.column}: warning: ${f.primitive}() unkeyed in \`${f.fnName}\` (${f.reason})\n`,
+          );
+        }
       }
       process.stdout.write(`\n${findings.length} finding${findings.length === 1 ? '' : 's'} across ${index.size} files\n`);
     }

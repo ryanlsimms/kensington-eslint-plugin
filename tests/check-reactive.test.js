@@ -116,6 +116,63 @@ test('mixed JS consumer + TS helper resolves through .js -> .ts swap', () => {
   assert.equal(hits[0].primitive, 'computed');
 });
 
+// === Duplicate-key initial-mismatch (cross-file collisions) ================
+
+test('duplicate keyed signal calls with mismatched primitive initials produce findings', () => {
+  const { findings } = analyzeProject([join(fixtures, 'duplicate-key-mismatch')]);
+  const mismatches = findings.filter(f => f.kind === 'duplicate-key-initial-mismatch');
+  // One finding per call site (two files, one call each).
+  assert.equal(mismatches.length, 2, JSON.stringify(findings, null, 2));
+  for (const f of mismatches) {
+    assert.equal(f.primitive, 'signal');
+    assert.equal(f.key, 'counter');
+    assert.equal(f.groupSize, 2);
+  }
+  // The two findings should point at different files.
+  const filesHit = new Set(mismatches.map(f => f.file));
+  assert.equal(filesHit.size, 2);
+  // Each finding's otherSites should reference the OTHER file's call.
+  const aHit = mismatches.find(f => f.file.endsWith('a.ts'));
+  const bHit = mismatches.find(f => f.file.endsWith('b.ts'));
+  assert.ok(aHit && bHit, JSON.stringify(mismatches, null, 2));
+  assert.ok(aHit.otherSites.some(s => s.includes('b.ts')));
+  assert.ok(bHit.otherSites.some(s => s.includes('a.ts')));
+});
+
+test('duplicate keyed signal calls with matching initials produce no finding', () => {
+  const { findings } = analyzeProject([join(fixtures, 'duplicate-key-match')]);
+  const mismatches = findings.filter(f => f.kind === 'duplicate-key-initial-mismatch');
+  assert.equal(mismatches.length, 0, JSON.stringify(findings, null, 2));
+});
+
+test('// kensington-check-reactive-ignore suppresses a duplicate-key mismatch', () => {
+  const { findings } = analyzeProject([join(fixtures, 'duplicate-key-suppressed')]);
+  // a.ts isn't suppressed, but the group has only one un-suppressed entry,
+  // so no mismatch is detectable. Expect zero duplicate-key findings.
+  const mismatches = findings.filter(f => f.kind === 'duplicate-key-initial-mismatch');
+  assert.equal(mismatches.length, 0, JSON.stringify(findings, null, 2));
+});
+
+test('duplicate liveSignal names with mismatched initials produce findings under the liveSignal primitive', () => {
+  const { findings } = analyzeProject([join(fixtures, 'duplicate-live-name')]);
+  const mismatches = findings.filter(f => f.kind === 'duplicate-key-initial-mismatch');
+  assert.equal(mismatches.length, 2, JSON.stringify(findings, null, 2));
+  for (const f of mismatches) {
+    assert.equal(f.primitive, 'liveSignal');
+    assert.equal(f.key, 'shared:value');
+  }
+});
+
+test('a single isolated call (no other call site sharing the key) is not flagged', () => {
+  // Reusing the duplicate-key-match fixture but checking that the underlying
+  // mechanism only fires when the group has > 1 entry. The match fixture has
+  // two calls with the same initial → no mismatch; we additionally confirm
+  // that a fixture with ZERO collisions (single-file) reports no mismatches.
+  const { findings } = analyzeProject([join(fixtures, 'single-file')]);
+  const mismatches = findings.filter(f => f.kind === 'duplicate-key-initial-mismatch');
+  assert.equal(mismatches.length, 0, JSON.stringify(findings, null, 2));
+});
+
 test('multiple roots are scanned together', () => {
   const { findings, fileCount } = analyzeProject([
     join(fixtures, 'single-file'),

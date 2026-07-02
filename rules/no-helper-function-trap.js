@@ -8,6 +8,13 @@
 // from inside a computed/transform/mapFn callback, so at runtime the call runs
 // in a reactive scope).
 //
+// Also reports `liveSignal()` calls inside helpers reachable from a reactive
+// callback. liveSignal's second argument is always a name (not optional), so
+// the rule fires regardless of args length. The trap is the same shape as the
+// plain signal case but in the liveSignal namespace: the first call for a given
+// name creates the transport entry inside the reactive scope.
+import { isKensingtonLiveSource } from './_utils.js';
+//
 // Single-file analysis only. We track only named top-level functions; nested
 // anonymous helpers are out of scope (the lexical rule already covers them).
 //
@@ -42,12 +49,20 @@ export default {
         + 'surrounding reactive scope at runtime even though the call site looks '
         + 'top-level here. Pass a stable key as the second argument to scope the '
         + 'instance to the surrounding reactive scope.',
+      helperFunctionTrapLive:
+        'liveSignal() call inside `{{fnName}}`, which is called from a reactive '
+        + 'callback in this file ({{reason}}). The first call for this name creates '
+        + 'the transport entry inside the surrounding reactive scope at runtime. '
+        + 'Eager-seed the liveSignal outside the reactive scope (queueMicrotask is '
+        + 'the canonical pattern). See agent-docs/live-signals.md → "liveSignal '
+        + 'inside a reactive callback".',
     },
     schema: [],
   },
 
   create(context) {
     const signalNames = new Set();
+    const liveSignalNames = new Set();
     const computedNames = new Set();
     const effectNames = new Set();
 
@@ -135,16 +150,24 @@ export default {
 
     return {
       ImportDeclaration(node) {
-        if (node.source.value !== 'kensington') {
+        if (node.source.value === 'kensington') {
+          for (const spec of node.specifiers) {
+            if (spec.type !== 'ImportSpecifier') {
+              continue;
+            }
+            if (spec.imported.name === 'signal') { signalNames.add(spec.local.name); }
+            if (spec.imported.name === 'computed') { computedNames.add(spec.local.name); }
+            if (spec.imported.name === 'effect') { effectNames.add(spec.local.name); }
+          }
           return;
         }
-        for (const spec of node.specifiers) {
-          if (spec.type !== 'ImportSpecifier') {
-            continue;
+        if (isKensingtonLiveSource(node.source.value)) {
+          for (const spec of node.specifiers) {
+            if (spec.type !== 'ImportSpecifier') {
+              continue;
+            }
+            if (spec.imported.name === 'liveSignal') { liveSignalNames.add(spec.local.name); }
           }
-          if (spec.imported.name === 'signal') { signalNames.add(spec.local.name); }
-          if (spec.imported.name === 'computed') { computedNames.add(spec.local.name); }
-          if (spec.imported.name === 'effect') { effectNames.add(spec.local.name); }
         }
       },
 
@@ -213,9 +236,13 @@ export default {
         const fn = currentFn();
         if (fn && !fn.anonymous) {
           if (callee.type === 'Identifier' && signalNames.has(callee.name) && !hasKey) {
-            fn.unkeyedCalls.push({ node, primitive: 'signal' });
+            fn.unkeyedCalls.push({ node, primitive: 'signal', isLive: false });
+          } else if (callee.type === 'Identifier' && liveSignalNames.has(callee.name)) {
+            // liveSignal's second arg is a name (always present); flag it
+            // regardless of args length. The trap is structural, not key-presence.
+            fn.unkeyedCalls.push({ node, primitive: 'liveSignal', isLive: true });
           } else if (callee.type === 'Identifier' && computedNames.has(callee.name) && !hasKey) {
-            fn.unkeyedCalls.push({ node, primitive: 'computed' });
+            fn.unkeyedCalls.push({ node, primitive: 'computed', isLive: false });
           } else if (
             callee.type === 'MemberExpression'
             && !callee.computed
@@ -223,7 +250,7 @@ export default {
             && callee.property.name === 'transform'
             && !hasKey
           ) {
-            fn.unkeyedCalls.push({ node, primitive: '.transform' });
+            fn.unkeyedCalls.push({ node, primitive: '.transform', isLive: false });
           } else if (callee.type === 'Identifier') {
             fn.callees.add(callee.name);
           }
@@ -262,7 +289,7 @@ export default {
           for (const hit of rec.unkeyedCalls) {
             context.report({
               node: hit.node,
-              messageId: 'helperFunctionTrap',
+              messageId: hit.isLive ? 'helperFunctionTrapLive' : 'helperFunctionTrap',
               data: { primitive: hit.primitive, fnName: name, reason },
             });
           }

@@ -22,3 +22,8 @@ declare module 'kensington' {
   export function signal<T>(initial: T, key?: string): Signal<T>;
   export function computed<T>(fn: () => T, key?: string): Signal<T>;
 }
+
+declare module 'kensington/live' {
+  import type { Signal } from 'kensington';
+  export function liveSignal<T>(initial: T, name: string): Signal<T>;
+}

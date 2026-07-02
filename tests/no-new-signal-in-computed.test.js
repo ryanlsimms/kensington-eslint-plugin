@@ -56,5 +56,21 @@ tester.run('no-new-signal-in-computed', rule, {
              const c = computed(() => { const x = sig(0); return x.get(); });`,
       errors: [{ messageId: 'noNewSignalInComputed' }],
     },
+
+    // liveSignal() inside computed — flagged regardless of args length (name is mandatory)
+    {
+      code: `import { computed } from 'kensington';
+             import { liveSignal } from 'kensington/live';
+             const c = computed(() => { const x = liveSignal(0, 'foo'); return x.get(); });`,
+      errors: [{ messageId: 'noLiveSignalInComputed' }],
+    },
+
+    // liveSignal() inside computed from kensington/live/client
+    {
+      code: `import { computed } from 'kensington';
+             import { liveSignal } from 'kensington/live/client';
+             const c = computed(() => { const x = liveSignal(0, 'foo'); return x.get(); });`,
+      errors: [{ messageId: 'noLiveSignalInComputed' }],
+    },
   ],
 });

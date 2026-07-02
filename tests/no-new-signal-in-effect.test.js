@@ -52,5 +52,37 @@ tester.run('no-new-signal-in-effect', rule, {
              effect(() => { const x = sig(0); });`,
       errors: [{ messageId: 'noNewSignalInEffect' }],
     },
+
+    // liveSignal() inside an effect from kensington/live
+    {
+      code: `import { effect } from 'kensington';
+             import { liveSignal } from 'kensington/live';
+             effect(() => { const x = liveSignal(0, 'name'); });`,
+      errors: [{ messageId: 'noNewLiveSignalInEffect' }],
+    },
+
+    // liveSignal() inside an effect from kensington/live/client
+    {
+      code: `import { effect } from 'kensington';
+             import { liveSignal } from 'kensington/live/client';
+             effect(() => { const x = liveSignal(0, 'name'); });`,
+      errors: [{ messageId: 'noNewLiveSignalInEffect' }],
+    },
+
+    // liveSignal() inside an effect from kensington/live/server (server-side traps too)
+    {
+      code: `import { effect } from 'kensington';
+             import { liveSignal } from 'kensington/live/server';
+             effect(() => { const x = liveSignal(0, 'name'); });`,
+      errors: [{ messageId: 'noNewLiveSignalInEffect' }],
+    },
+
+    // liveSignal() inside an effect with renamed import
+    {
+      code: `import { effect } from 'kensington';
+             import { liveSignal as ls } from 'kensington/live';
+             effect(() => { const x = ls(0, 'name'); });`,
+      errors: [{ messageId: 'noNewLiveSignalInEffect' }],
+    },
   ],
 });

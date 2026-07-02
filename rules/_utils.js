@@ -1,5 +1,19 @@
 // Shared helpers used by the formatting rules.
 
+// Module specifier paths that export `liveSignal`. Imports from any of these
+// resolve to the same function. Rules that look for reactive-primitive creation
+// inside reactive scopes must recognize all three so liveSignal lazy-registry
+// traps surface the same way plain signal traps do.
+export const KENSINGTON_LIVE_SOURCES = new Set([
+  'kensington/live',
+  'kensington/live/client',
+  'kensington/live/server',
+]);
+
+export function isKensingtonLiveSource(value) {
+  return KENSINGTON_LIVE_SOURCES.has(value);
+}
+
 // HTML boolean attributes per the WHATWG HTML spec. Kebab-case form is the
 // attribute name; camelCase keys (e.g. `formNoValidate`) also match because the
 // tag-call check looks at the key text after camel-to-kebab conversion.

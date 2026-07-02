@@ -42,7 +42,7 @@ export default [
 ];
 ```
 
-The `strict` config opts in to maximum-safety reactive correctness. It extends `recommended`, promotes every reactive-correctness `warn` rule to `error`, and adds two extra rules:
+The `strict` config opts in to maximum-safety reactive correctness. It extends `recommended`, promotes every reactive-correctness `warn` rule to `error`, and adds `no-helper-function-trap` at `error` (single-file call-graph analysis that catches unkeyed `signal()` / `computed()` / `.transform()` inside helpers reachable from a reactive callback — the trap most lexical rules miss).
 
 ```js
 import kensington from 'kensington-eslint-plugin';
@@ -55,10 +55,21 @@ export default [
 
 What `strict` changes on top of `recommended`:
 
-- **Adds `require-reactive-key`** (error). Paranoid mode. Flags every unkeyed `signal()`/`computed()`/`.transform()` call site, period. Not in `recommended` at any level. Keys are no-ops at module scope and required inside reactive scopes, so passing one always is safer than auditing call-site reachability. Suppress per call site with `eslint-disable-next-line kensington/require-reactive-key` when a top-level signal is known never to move into a reactive scope.
-- **Promotes from `warn` to `error`**. `no-signal-async-write`, `no-ignored-effect-return`, `prefer-value-in-async`, `no-new-computed-in-computed`, `no-out-of-scope-reactive-reference`, `no-helper-function-trap`. All real reactive-correctness issues; strict mode chooses zero silent misses over tolerance of false positives.
+- **Adds `no-helper-function-trap`** (error). The most valuable single rule the plugin ships.
+- **Promotes from `warn` to `error`**: `no-signal-async-write`, `no-ignored-effect-return`, `prefer-value-in-async`, `no-out-of-scope-reactive-reference`. Real reactive-correctness issues; strict mode chooses zero silent misses over tolerance of false positives.
 
 Use `strict` if you want CI to fail on any reactive-correctness issue, or if you're using an agent-driven workflow that benefits from harder enforcement. Use `recommended` for production codebases that prefer the warnings as guidance.
+
+### Optional: `require-reactive-key`
+
+A separate rule, not enabled by either config. Flags every unkeyed `signal()` / `computed()` / `.transform()` call site, period — including at module scope. Keys are no-ops at module scope and required inside reactive scopes, so passing one always is safer than auditing call-site reachability. But in practice the rule generates mechanical retrofits that don't catch real bugs (the keys it forces at module scope have no runtime effect). Opt in explicitly when you want refactor-safety enforcement so that a later lift into a reactive scope finds the key already in place:
+
+```js
+export default [
+  kensington.configs.strict,
+  { rules: { 'kensington/require-reactive-key': 'error' } },
+];
+```
 
 The `style` config is opt-in and bundles the formatting rules at `warn` level:
 
@@ -116,11 +127,12 @@ Because this is a standard ESLint plugin, it works anywhere ESLint runs with no 
 | [`no-new-computed-in-effect`](#no-new-computed-in-effect) | Disallow creating a new `computed()` inside an `effect()` body | error | error |
 | [`no-new-signal-in-computed`](#no-new-signal-in-computed) | Require a stable key for `signal()` calls inside a `computed()` body | error | error |
 | [`no-unsafe-literal`](#no-unsafe-literal) | Disallow `.unsafeLiteral()` calls that bypass XSS protection | error | error |
-| [`no-new-computed-in-computed`](#no-new-computed-in-computed) | Require a stable key for `computed()` and `.transform()` calls inside a `computed()` body | warn | error |
+| [`no-new-computed-in-computed`](#no-new-computed-in-computed) | Require a stable key for `computed()` and `.transform()` calls inside a `computed()` body (**deprecated**. use `no-out-of-scope-reactive-reference`) | off | off |
 | [`no-out-of-scope-reactive-reference`](#no-out-of-scope-reactive-reference) | Disallow referencing a `signal()`, `computed()`, or `.transform()` from outside the computed scope where it was created | warn | error |
 | [`no-effect-in-effect`](#no-effect-in-effect) | Disallow creating a new `effect()` inside an `effect()` body | error | error |
 | [`no-async-effect`](#no-async-effect) | Disallow async callbacks passed to `effect()` | error | error |
 | [`no-async-computed`](#no-async-computed) | Disallow async callbacks passed to `computed()` | error | error |
+| [`no-async-set`](#no-async-set) | Disallow passing an async function to `.set()` on a signal | error | error |
 | [`no-helper-function-trap`](#no-helper-function-trap) | Require a stable key for `signal()`/`computed()`/`.transform()` inside helpers reachable from a reactive callback in the same file | warn | error |
 | [`require-reactive-key`](#require-reactive-key) | Require a stable key on every `signal()`/`computed()`/`.transform()` call site, regardless of context | off | error |
 | [`prefer-boolean-attribute-true`](#prefer-boolean-attribute-true) | Prefer `true` over `''` for boolean HTML attributes | style | style |
@@ -210,6 +222,21 @@ const local = signal(0);
 effect(() => {
   local.set(local.get() + 1);
 });
+```
+
+Also fires for `liveSignal()` imports from `kensington/live`, `kensington/live/client`, or `kensington/live/server`. The lazy-registry creation on first sight happens inside the effect's reactive scope and trips the runtime warning.
+
+```js
+// Bad
+import { effect } from 'kensington';
+import { liveSignal } from 'kensington/live';
+effect(() => {
+  const c = liveSignal(0, 'counter'); // error. Registry lookup inside reactive scope.
+});
+
+// Good. Declare at module scope, or eager-seed via queueMicrotask outside.
+const c = liveSignal(0, 'counter');
+effect(() => { c.set(c.get() + 1); });
 ```
 
 ---
@@ -328,6 +355,21 @@ const temp = signal(0);
 const c = computed(() => temp.get() + base.get());
 ```
 
+Also fires for `liveSignal()` calls inside a `computed()` body, from any of `kensington/live`, `kensington/live/client`, or `kensington/live/server`. liveSignal's second argument is always a name (not optional), so the rule fires regardless of args length. The trap is the first-call lazy creation inside the reactive scope.
+
+```js
+// Bad
+import { computed } from 'kensington';
+import { liveSignal } from 'kensington/live';
+const c = computed(() => {
+  return liveSignal(0, 'foo').get(); // error. Lazy-registry creation inside reactive scope.
+});
+
+// Good. Declare at module scope, or eager-seed via queueMicrotask outside.
+const foo = liveSignal(0, 'foo');
+const c = computed(() => foo.get());
+```
+
 ---
 
 ### `no-unsafe-literal`
@@ -345,6 +387,10 @@ t.literal(userContent);
 ---
 
 ### `no-new-computed-in-computed`
+
+**Deprecated.** Removed from the `recommended` and `strict` configs. The kensington runtime now defers the `computed-in-computed` and `transform-in-computed` warnings to subscription time and only fires when a user `effect` or user `computed` subscribes to the inner. Inline consumption as an attribute, class, text, or prop slot is silent by design, so the purely-lexical flag this rule emitted became mostly false positives. The remaining real concern — a nested inner that escapes the surrounding computed's scope — is covered by [`no-out-of-scope-reactive-reference`](#no-out-of-scope-reactive-reference), which uses a full escape classifier. Teams that want every unkeyed call site flagged can opt into [`require-reactive-key`](#require-reactive-key).
+
+The rule stays registered so existing configs that reference it don't error, but enabling it is no longer recommended.
 
 Creating `computed()` or `.transform()` inside a `computed()` body without a key creates a new orphaned derived signal on every recompute. Pass a stable key as the second argument to reuse the same instance across outer re-runs.
 
@@ -488,6 +534,25 @@ effect(() => {
 
 ---
 
+### `no-async-set`
+
+`.set()` stores whatever value the updater returns. An async function returns a `Promise` immediately, so the Promise object itself becomes the signal's value. Reads then see a `Thenable` where consumers expect `T`. For a `liveSignal`, the Promise serializes to `"{}"` on the wire, corrupting every subscriber's view.
+
+The pattern almost always means "do async work then update the signal". Await the async work first and then call `.set(resolvedValue)`, or schedule the write from an `effect()`.
+
+```js
+// Bad. Signal value becomes a Promise, not the resolved user.
+user.set(async (prev) => { // error
+  return await fetchUser(prev.id);
+});
+
+// Good. Resolve first, then set the final value.
+const next = await fetchUser(user.value.id);
+user.set(next);
+```
+
+---
+
 ### `no-helper-function-trap`
 
 Catches the call-stack version of the helper-function trap that the existing `no-new-signal-in-computed` and `no-new-computed-in-computed` rules miss. Those rules only flag lexical positions (the call is written directly inside a `computed(() => ...)` body in the source). This rule does single-file call-graph analysis. For every `signal()`/`computed()`/`.transform()` call without a key inside a named function, the rule checks whether that function is reachable (directly or transitively) from a reactive callback in the same file. Reactive callbacks recognized. function args to `computed(fn)`, `effect(fn)`, `signal.transform(fn)`, and `signal.mapWithKey(key, fn)`. Both inline arrow callbacks (`mapWithKey('id', x => row(x))`) and bare-identifier callbacks (`mapWithKey('id', row)`) are recognized.
@@ -514,6 +579,30 @@ const list = items.mapWithKey('id', item => row(item));
 Single-file analysis only. A helper defined in `cell.ts` and called from a reactive callback in `grid.ts` is NOT flagged by this rule on `cell.ts` (the call site is invisible). For cross-file coverage use `require-reactive-key`, which flags every unkeyed call site regardless of context.
 
 False-positive surface. Helpers reachable from a reactive callback are flagged, even if they are ALSO called from non-reactive sites. The conservative choice is correct: if any call path enters a reactive scope, the key is needed.
+
+Also fires for `liveSignal()` calls inside such helpers, from any of `kensington/live`, `kensington/live/client`, or `kensington/live/server`. The trap is the same shape (first-call lazy creation inside the surrounding reactive scope), and liveSignal's second argument is always a name (not optional), so the rule fires regardless of args length. The fix is to declare the liveSignal at module scope, or eager-seed it via `queueMicrotask` outside the reactive scope.
+
+```js
+// Bad. getRow is a lazy registry; the first call for a given id creates the
+// transport entry inside the per-key computed run by mapWithKey.
+import { liveSignal } from 'kensington/live';
+function getRow(id) { return liveSignal(0, 'row:' + id); }
+const list = items.mapWithKey('id', item => getRow(item.id));
+
+// Good. Eager-seed once outside the reactive scope.
+const rows = new Map();
+function getRow(id) {
+  let s = rows.get(id);
+  if (s === undefined) { s = liveSignal(0, 'row:' + id); rows.set(id, s); }
+  return s;
+}
+// In an addConnectedCallback or top-of-component effect:
+effect(() => {
+  const ids = items.get().map(i => i.id);
+  queueMicrotask(() => { for (const id of ids) { getRow(id); } });
+});
+const list = items.mapWithKey('id', item => getRow(item.id));
+```
 
 ---
 

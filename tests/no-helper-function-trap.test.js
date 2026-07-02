@@ -160,5 +160,30 @@ tester.run('no-helper-function-trap', rule, {
              const list = items.mapWithKey('id', item => row(item));`,
       errors: [{ messageId: 'helperFunctionTrap' }],
     },
+
+    // liveSignal lazy-registry helper called from a reactive callback.
+    {
+      code: `import { liveSignal } from 'kensington/live';
+             function getRow(id) { return liveSignal(0, 'row:' + id); }
+             const list = items.mapWithKey('id', item => getRow(item.id));`,
+      errors: [{ messageId: 'helperFunctionTrapLive' }],
+    },
+
+    // liveSignal from client subpath.
+    {
+      code: `import { liveSignal } from 'kensington/live/client';
+             function getRow(id) { return liveSignal(0, 'row:' + id); }
+             const list = items.mapWithKey('id', item => getRow(item.id));`,
+      errors: [{ messageId: 'helperFunctionTrapLive' }],
+    },
+
+    // liveSignal transitively reached through a non-reactive intermediate helper.
+    {
+      code: `import { liveSignal } from 'kensington/live';
+             function makeLive(id) { return liveSignal(0, id); }
+             function getRow(id) { return makeLive(id); }
+             const list = items.mapWithKey('id', item => getRow(item.id));`,
+      errors: [{ messageId: 'helperFunctionTrapLive' }],
+    },
   ],
 });

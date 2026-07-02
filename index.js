@@ -24,6 +24,7 @@ import attrsCanonicalShape from './rules/attrs-canonical-shape.js';
 import consistentContentLayout from './rules/consistent-content-layout.js';
 import noHelperFunctionTrap from './rules/no-helper-function-trap.js';
 import requireReactiveKey from './rules/require-reactive-key.js';
+import noAsyncSet from './rules/no-async-set.js';
 
 const plugin = {
   meta: { name: 'eslint-plugin-kensington' },
@@ -54,6 +55,7 @@ const plugin = {
     'consistent-content-layout': consistentContentLayout,
     'no-helper-function-trap': noHelperFunctionTrap,
     'require-reactive-key': requireReactiveKey,
+    'no-async-set': noAsyncSet,
   },
   configs: {},
 };
@@ -72,12 +74,12 @@ plugin.configs.recommended = {
     'kensington/no-new-computed-in-effect': 'error',
     'kensington/no-new-signal-in-computed': 'error',
     'kensington/no-unsafe-literal': 'error',
-    'kensington/no-new-computed-in-computed': 'warn',
     'kensington/no-effect-in-effect': 'error',
     'kensington/no-async-effect': 'error',
     'kensington/no-async-computed': 'error',
     'kensington/no-out-of-scope-reactive-reference': 'warn',
     'kensington/no-helper-function-trap': 'warn',
+    'kensington/no-async-set': 'error',
   },
 };
 
@@ -87,13 +89,19 @@ plugin.configs.strict = {
     ...plugin.configs.recommended.rules,
     // Promote every reactive-correctness warning to error. Strict mode trades
     // tolerance of false positives for zero silent misses.
+    //
+    // Note: require-reactive-key is NOT included. The rule flags every unkeyed
+    // signal()/computed()/.transform() call site including at module scope,
+    // which generates mechanical retrofits that don't catch real bugs (keys are
+    // no-ops at module scope). Opt in explicitly with
+    //   'kensington/require-reactive-key': 'error'
+    // if you want refactor-safety enforcement (a later lift into a reactive
+    // scope finds the key already in place).
     'kensington/no-signal-async-write': 'error',
     'kensington/no-ignored-effect-return': 'error',
     'kensington/prefer-value-in-async': 'error',
-    'kensington/no-new-computed-in-computed': 'error',
     'kensington/no-out-of-scope-reactive-reference': 'error',
     'kensington/no-helper-function-trap': 'error',
-    'kensington/require-reactive-key': 'error',
   },
 };
 

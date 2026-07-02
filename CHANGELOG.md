@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- New rule `no-async-set`: disallow passing an async function to `.set()` on a signal. The Promise return corrupts the stored value (and serializes to `"{}"` on the wire for `liveSignal`). Enabled at `error` in both `recommended` and `strict`.
+- `no-new-signal-in-effect`, `no-new-signal-in-computed`, and `no-helper-function-trap` now also recognize `liveSignal()`
+
+### Changed
+- **Breaking.** `require-reactive-key` removed from the `strict` config.
+- **Deprecated.** `no-new-computed-in-computed` removed from both the `recommended` and `strict` configs and marked `deprecated` in its rule metadata.
+
 ## [0.5.1] - 2026-06-24
 
 ### Changed
