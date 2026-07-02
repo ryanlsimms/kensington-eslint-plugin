@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.6.0] - 2026-07-02
 
 ### Added
 - New rule `no-async-set`: disallow passing an async function to `.set()` on a signal. The Promise return corrupts the stored value (and serializes to `"{}"` on the wire for `liveSignal`). Enabled at `error` in both `recommended` and `strict`.
