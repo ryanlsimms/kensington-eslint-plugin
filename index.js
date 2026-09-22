@@ -25,6 +25,7 @@ import consistentContentLayout from './rules/consistent-content-layout.js';
 import noHelperFunctionTrap from './rules/no-helper-function-trap.js';
 import requireReactiveKey from './rules/require-reactive-key.js';
 import noAsyncSet from './rules/no-async-set.js';
+import preferSubscribeInEffect from './rules/prefer-subscribe-in-effect.js';
 
 const plugin = {
   meta: { name: 'eslint-plugin-kensington' },
@@ -56,6 +57,7 @@ const plugin = {
     'no-helper-function-trap': noHelperFunctionTrap,
     'require-reactive-key': requireReactiveKey,
     'no-async-set': noAsyncSet,
+    'prefer-subscribe-in-effect': preferSubscribeInEffect,
   },
   configs: {},
 };
@@ -80,6 +82,7 @@ plugin.configs.recommended = {
     'kensington/no-out-of-scope-reactive-reference': 'warn',
     'kensington/no-helper-function-trap': 'warn',
     'kensington/no-async-set': 'error',
+    'kensington/prefer-subscribe-in-effect': 'warn',
   },
 };
 
@@ -102,6 +105,7 @@ plugin.configs.strict = {
     'kensington/prefer-value-in-async': 'error',
     'kensington/no-out-of-scope-reactive-reference': 'error',
     'kensington/no-helper-function-trap': 'error',
+    'kensington/prefer-subscribe-in-effect': 'error',
   },
 };
 

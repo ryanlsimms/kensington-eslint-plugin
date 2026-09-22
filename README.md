@@ -56,7 +56,7 @@ export default [
 What `strict` changes on top of `recommended`:
 
 - **Adds `no-helper-function-trap`** (error). The most valuable single rule the plugin ships.
-- **Promotes from `warn` to `error`**: `no-signal-async-write`, `no-ignored-effect-return`, `prefer-value-in-async`, `no-out-of-scope-reactive-reference`. Real reactive-correctness issues; strict mode chooses zero silent misses over tolerance of false positives.
+- **Promotes from `warn` to `error`**: `no-signal-async-write`, `no-ignored-effect-return`, `prefer-value-in-async`, `prefer-subscribe-in-effect`, `no-out-of-scope-reactive-reference`. Real reactive-correctness issues; strict mode chooses zero silent misses over tolerance of false positives.
 
 Use `strict` if you want CI to fail on any reactive-correctness issue, or if you're using an agent-driven workflow that benefits from harder enforcement. Use `recommended` for production codebases that prefer the warnings as guidance.
 
@@ -124,6 +124,7 @@ Because this is a standard ESLint plugin, it works anywhere ESLint runs with no 
 | [`no-signal-async-write`](#no-signal-async-write) | Disallow writing a signal in an async callback when it was read in the enclosing `effect()` | warn | error |
 | [`no-ignored-effect-return`](#no-ignored-effect-return) | Require capturing the return value of `effect()` inside a function | warn | error |
 | [`prefer-value-in-async`](#prefer-value-in-async) | Prefer `.value` over `.get()` inside async callbacks within an `effect()` | warn | error |
+| [`prefer-subscribe-in-effect`](#prefer-subscribe-in-effect) | Prefer `.subscribe()` for trigger-only `.get()` calls inside an `effect()` | warn | error |
 | [`no-new-computed-in-effect`](#no-new-computed-in-effect) | Disallow creating a new `computed()` inside an `effect()` body | error | error |
 | [`no-new-signal-in-computed`](#no-new-signal-in-computed) | Require a stable key for `signal()` calls inside a `computed()` body | error | error |
 | [`no-unsafe-literal`](#no-unsafe-literal) | Disallow `.unsafeLiteral()` calls that bypass XSS protection | error | error |
@@ -318,6 +319,26 @@ effect(() => {
   });
 });
 ```
+
+---
+
+### `prefer-subscribe-in-effect`
+
+Use `.subscribe()` when an effect reads a signal only to subscribe to its changes and does not need the current value. The alias makes the trigger-only intent clear.
+
+```js
+// Bad
+effect(() => {
+  count.get(); // warn. The value is ignored.
+});
+
+// Good
+effect(() => {
+  count.subscribe();
+});
+```
+
+The rule leaves value reads used in expressions, assignments, and nested callbacks alone.
 
 ---
 
