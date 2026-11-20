@@ -5,6 +5,15 @@ const tester = new RuleTester({ languageOptions: { ecmaVersion: 2022, sourceType
 
 tester.run('no-async-effect', rule, {
   valid: [
+    // Owned effects use the same synchronous callback contract, without a handle to capture.
+    `import { t } from 'kensington'; t.div().effect(() => {});`,
+    `function component(root) { root.effect(() => { load().then(update); }); }`,
+    `root['effect'](function() { update(); });`,
+    `root?.effect(() => {}); root.effect?.(() => {});`,
+    `root.effect();`,
+    `root.otherEffect(async () => {});`,
+    `root[method](async () => {});`,
+    `const effect = async fn => fn(); effect(async () => {});`,
     // synchronous arrow function — correct
     `import { effect, signal } from 'kensington';
      const x = signal(0);
@@ -26,6 +35,35 @@ tester.run('no-async-effect', rule, {
   ],
 
   invalid: [
+    {
+      code: `import { t } from 'kensington'; t.div().effect(async () => { await load(); });`,
+      errors: [{ messageId: 'noAsyncEffect' }],
+    },
+    {
+      code: `function component(root) { root.effect(async function() { await load(); }); }`,
+      errors: [{ messageId: 'noAsyncEffect' }],
+    },
+    {
+      code: `import { t as tags } from 'kensington';
+             const panel = tags.div(); panel.effect(async () => {});`,
+      errors: [{ messageId: 'noAsyncEffect' }],
+    },
+    {
+      code: `root['effect'](async () => {});`,
+      errors: [{ messageId: 'noAsyncEffect' }],
+    },
+    {
+      code: `root?.effect(async () => {}); root.effect?.(async () => {});`,
+      errors: [{ messageId: 'noAsyncEffect' }, { messageId: 'noAsyncEffect' }],
+    },
+    {
+      code: `import * as k from 'kensington'; k.effect(async () => {});`,
+      errors: [{ messageId: 'noAsyncEffect' }],
+    },
+    {
+      code: `import { effect as watch } from 'kensington/reactive'; watch(async () => {});`,
+      errors: [{ messageId: 'noAsyncEffect' }],
+    },
     // async arrow function
     {
       code: `import { effect } from 'kensington';

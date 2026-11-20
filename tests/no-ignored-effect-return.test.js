@@ -5,6 +5,8 @@ const tester = new RuleTester({ languageOptions: { ecmaVersion: 2022, sourceType
 
 tester.run('no-ignored-effect-return', rule, {
   valid: [
+    // A tag owns its effects, so discarding its chainable return does not leak a handle.
+    `import { t } from 'kensington'; function component() { t.div().effect(() => {}); }`,
     // return value captured — fine
     `import { effect, signal } from 'kensington';
      function setup() {

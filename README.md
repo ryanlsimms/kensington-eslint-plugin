@@ -119,6 +119,7 @@ Because this is a standard ESLint plugin, it works anywhere ESLint runs with no 
 | [`no-set-in-derivation`](#no-set-in-derivation) | Disallow `.set()` inside a `computed()` body or `.transform()` callback | error | error |
 | [`no-self-read-write`](#no-self-read-write) | Disallow reading and writing the same signal in the same reactive run | error | error |
 | [`no-set-on-derived-signal`](#no-set-on-derived-signal) | Disallow `.set()` on a derived (computed or transform) signal | error | error |
+| [`no-signal-instanceof`](#no-signal-instanceof) | Prefer `isKensingtonSignal()` over `instanceof Signal` across package copies | warn | error |
 | [`no-new-signal-in-effect`](#no-new-signal-in-effect) | Disallow creating a new `signal()` inside an `effect()` body | error | error |
 | [`no-effect-in-computed`](#no-effect-in-computed) | Disallow calling `effect()` inside a `computed()` body | error | error |
 | [`no-signal-async-write`](#no-signal-async-write) | Disallow writing a signal in an async callback when it was read in the enclosing `effect()` | warn | error |
@@ -131,7 +132,7 @@ Because this is a standard ESLint plugin, it works anywhere ESLint runs with no 
 | [`no-new-computed-in-computed`](#no-new-computed-in-computed) | Require a stable key for `computed()` and `.transform()` calls inside a `computed()` body (**deprecated**. use `no-out-of-scope-reactive-reference`) | off | off |
 | [`no-out-of-scope-reactive-reference`](#no-out-of-scope-reactive-reference) | Disallow referencing a `signal()`, `computed()`, or `.transform()` from outside the computed scope where it was created | warn | error |
 | [`no-effect-in-effect`](#no-effect-in-effect) | Disallow creating a new `effect()` inside an `effect()` body | error | error |
-| [`no-async-effect`](#no-async-effect) | Disallow async callbacks passed to `effect()` | error | error |
+| [`no-async-effect`](#no-async-effect) | Disallow async callbacks passed to `effect()` or `tag.effect()` | error | error |
 | [`no-async-computed`](#no-async-computed) | Disallow async callbacks passed to `computed()` | error | error |
 | [`no-async-set`](#no-async-set) | Disallow passing an async function to `.set()` on a signal | error | error |
 | [`no-helper-function-trap`](#no-helper-function-trap) | Require a stable key for `signal()`/`computed()`/`.transform()` inside helpers reachable from a reactive callback in the same file | warn | error |
@@ -189,6 +190,22 @@ effect(() => {
   count.set(val + 1);
 });
 ```
+
+---
+
+### `no-signal-instanceof`
+
+A signal imported from one Kensington entry point may be created by another entry point or a self-contained dist bundle. Those copies can have different `Signal` constructors, so `instanceof Signal` can return `false` for a valid Kensington signal. Use `isKensingtonSignal()` for the cross-copy brand check:
+
+```js
+import { isKensingtonSignal } from 'kensington';
+
+if (isKensingtonSignal(value)) {
+  value.get();
+}
+```
+
+The rule recognizes named and namespace imports from `kensington` and `kensington/reactive`, including renamed imports. It is enabled as a warning in `recommended` and an error in `strict`.
 
 ---
 
@@ -518,7 +535,7 @@ effect(() => {
 
 ### `no-async-effect`
 
-The effect system runs callbacks synchronously and ignores the returned `Promise`. Any `.get()` calls after the first `await` run outside the reactive context and register no subscription. Errors thrown inside the async body are also silently swallowed.
+The effect system runs callbacks synchronously and ignores the returned `Promise`. Any `.get()` calls after the first `await` run outside the reactive context and register no subscription. Promise rejections are not handled by the effect system.
 
 ```js
 // Bad
@@ -532,6 +549,24 @@ effect(() => {
   fetch(`/api/${id.get()}`).then(r => r.json()).then(data => title.set(data.title));
 });
 ```
+
+The same restriction applies to tag-owned effects:
+
+```js
+// Bad: reads after await are not tracked.
+root.effect(async () => {
+  await load();
+  query.get();
+});
+
+// Good: read signals while the synchronous effect is running.
+root.effect(() => {
+  const currentQuery = query.get();
+  load(currentQuery).then(showResults);
+});
+```
+
+The rule recognizes inline async arrows and function expressions on standalone Kensington imports (including aliases and `kensington/reactive`) and member `.effect()` calls, including fluent chains, static bracket notation and optional chaining. Member matching is syntactic, like `no-async-set`, so it works with tags passed as parameters or returned by helpers. For an unrelated API that intentionally supports an async `.effect()`, suppress this rule at that call. The `no-ignored-effect-return` rule does not require capturing a tag-owned effect's chainable return.
 
 ---
 

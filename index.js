@@ -2,6 +2,7 @@ import noSetInDerivation from './rules/no-set-in-derivation.js';
 import noSelfReadWrite from './rules/no-self-read-write.js';
 import noSignalAsyncWrite from './rules/no-signal-async-write.js';
 import noSetOnDerivedSignal from './rules/no-set-on-derived-signal.js';
+import noSignalInstanceof from './rules/no-signal-instanceof.js';
 import noNewSignalInEffect from './rules/no-new-signal-in-effect.js';
 import noEffectInComputed from './rules/no-effect-in-computed.js';
 import noIgnoredEffectReturn from './rules/no-ignored-effect-return.js';
@@ -34,6 +35,7 @@ const plugin = {
     'no-self-read-write': noSelfReadWrite,
     'no-signal-async-write': noSignalAsyncWrite,
     'no-set-on-derived-signal': noSetOnDerivedSignal,
+    'no-signal-instanceof': noSignalInstanceof,
     'no-new-signal-in-effect': noNewSignalInEffect,
     'no-effect-in-computed': noEffectInComputed,
     'no-ignored-effect-return': noIgnoredEffectReturn,
@@ -69,6 +71,7 @@ plugin.configs.recommended = {
     'kensington/no-self-read-write': 'error',
     'kensington/no-signal-async-write': 'warn',
     'kensington/no-set-on-derived-signal': 'error',
+    'kensington/no-signal-instanceof': 'warn',
     'kensington/no-new-signal-in-effect': 'error',
     'kensington/no-effect-in-computed': 'error',
     'kensington/no-ignored-effect-return': 'warn',
@@ -101,6 +104,7 @@ plugin.configs.strict = {
     // if you want refactor-safety enforcement (a later lift into a reactive
     // scope finds the key already in place).
     'kensington/no-signal-async-write': 'error',
+    'kensington/no-signal-instanceof': 'error',
     'kensington/no-ignored-effect-return': 'error',
     'kensington/prefer-value-in-async': 'error',
     'kensington/no-out-of-scope-reactive-reference': 'error',

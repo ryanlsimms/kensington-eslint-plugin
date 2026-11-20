@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- New `no-signal-instanceof` rule (warn in recommended, error in strict). Prefer `isKensingtonSignal()` because separate package entry points can have distinct `Signal` constructors.
+
+### Changed
+
+- `no-async-effect` now recognizes tag-owned `.effect()` calls, fluent chains, static bracket access and optional chaining, as well as standalone imports from `kensington/reactive`.
+
 ## [0.6.1] - 2026-09-22
 
 ### Added
